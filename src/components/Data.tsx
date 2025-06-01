@@ -1,40 +1,33 @@
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
-import {
-	createEffect,
-	createReaction,
-	createResource,
-	createSignal,
-	For
-} from 'solid-js'
+import { createEffect, createResource, createSignal, For } from 'solid-js'
 import { api, hasOPFS, isPersisted } from '../App'
-import type { Migration, Post, User } from '../schema'
-import * as schema from '../schema'
+import type { Migration, Post, User } from '../sqlite/schema'
+import * as schema from '../sqlite/schema'
 
-export const Tables = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
+export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 	const [reply, setReply] = createSignal<string>('No reply yet')
 	const [users, setUsers] = createSignal<User[]>([])
 	const [posts, setPosts] = createSignal<Post[]>([])
 	const [migrations, setMigrations] = createSignal<Migration[]>([])
 	const [loading, setLoading] = createSignal<boolean>(true)
 	const [error, setError] = createSignal<string | null>(null)
-
 	// New resources
 	const [isOpfs] = createResource(hasOPFS)
 	const [hasPersistence, { mutate: setHasPersistence }] =
 		createResource(isPersisted)
 
-	createEffect(async () => {
-		if (isOpfs() && !hasPersistence()) {
-			console.log('Asking for persistent storage support…')
-			setHasPersistence(await navigator.storage.persist())
-		}
-	})
+	// createEffect(async () => {
+	// 	if (isOpfs() && !hasPersistence()) {
+	// 		console.log('Asking for persistent storage support…')
+	// 		setHasPersistence(await navigator.storage.persist())
+	// 	}
+	// })
 
 	createEffect(async () => {
 		if (!props.db) return
 
 		try {
-			const pingResult = await api.ping()
+			const pingResult = await api.ping('Hello from Main!')
 			setReply(pingResult)
 		} catch (err) {
 			console.error('Main: ping failed:', err)
@@ -43,8 +36,11 @@ export const Tables = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 
 		try {
 			await api.clientReady
-			const [migrationsResult, usersList, postsList] = await props.db.batch([
-				props.db.select().from(schema.migrations),
+			const migrationsResult = await props.db
+				.select()
+				.from(schema.migrations)
+				.all()
+			const [usersList, postsList] = await props.db.batch([
 				props.db.select().from(schema.users),
 				props.db.select().from(schema.posts)
 			])
@@ -93,7 +89,7 @@ export const Tables = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 			{!loading() && !error() && (
 				<>
 					<section class="mb-6">
-						<h2 class="text-2xl font-semibold mb-2">Migrations (BASE)</h2>
+						<h2 class="text-2xl font-semibold mb-2">Migrations</h2>
 						{migrations().length === 0 ? (
 							<p class="text-gray-500">No migrations applied.</p>
 						) : (

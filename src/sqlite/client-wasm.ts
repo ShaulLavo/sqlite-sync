@@ -1,5 +1,3 @@
-import sqlite3InitModule from '@libsql/libsql-wasm-experimental'
-
 import type {
 	Database,
 	SqlValue,
@@ -7,45 +5,39 @@ import type {
 } from '@libsql/libsql-wasm-experimental'
 
 import type {
-	Config,
-	IntMode,
 	Client,
-	Transaction,
-	TransactionMode,
+	Config,
+	InArgs,
+	InStatement,
+	InValue,
+	IntMode,
+	Replicated,
 	ResultSet,
 	Row,
-	Value,
-	InValue,
-	InStatement,
-	InArgs,
-	Replicated
+	Transaction,
+	TransactionMode,
+	Value
 } from '@libsql/core/api'
 import { LibsqlError } from '@libsql/core/api'
-import type { ExpandedConfig as _ExpandedConfig } from '@libsql/core/config'
 import { expandConfig } from '@libsql/core/config'
 import {
+	ResultSetImpl,
 	supportedUrlLink,
-	transactionModeToBegin,
-	ResultSetImpl
+	transactionModeToBegin
 } from '@libsql/core/util'
+import sqliteParser from 'sqlite-parser'
+import type { ExpandedConfig, PoolUtil, Sqlite3ClientType } from './types'
 
 export * from '@libsql/core/api'
-
-type Sqlite3ClientType = Awaited<ReturnType<typeof sqlite3InitModule>>
-type PoolUtil = Awaited<ReturnType<Sqlite3ClientType['installOpfsSAHPoolVfs']>>
-type ExpandedConfig = _ExpandedConfig & {
-	poolUtil?: PoolUtil
-}
-
 export function createClient(
 	config: Config,
 	sqlite3: Sqlite3ClientType
-): Client {
+): [Client, Database] {
 	return _createClient(expandConfig(config, true), sqlite3)
 }
 
 /** @private */
-function getDb(
+function createDb(
 	sqlite3: Sqlite3ClientType,
 	path: string,
 	poolUtil?: PoolUtil | undefined
@@ -66,7 +58,7 @@ function getDb(
 export function _createClient(
 	config: ExpandedConfig,
 	sqlite3: Sqlite3ClientType
-): Client {
+): [Client, Database] {
 	if (config.scheme !== 'file') {
 		throw new LibsqlError(
 			`URL scheme ${JSON.stringify(
@@ -112,17 +104,18 @@ export function _createClient(
 		authToken: config.authToken,
 		syncUrl: config.syncUrl
 	}
-	const db = getDb(sqlite3, path, config.poolUtil)
+	const db = createDb(sqlite3, path, config.poolUtil)
 	executeStmt(db, 'SELECT 1 AS checkThatTheDatabaseCanBeOpened', config.intMode)
-
+	const res = executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
+	console.log('table_info(users)', res.rows[0])
 	const clinet = new Sqlite3Client(
 		sqlite3,
 		path,
-		/*options,*/ db,
+		db,
 		config.intMode,
 		config.poolUtil
 	)
-	return clinet
+	return [clinet, db]
 }
 
 function inTransaction(db: Database): boolean {
@@ -268,7 +261,7 @@ export class Sqlite3Client implements Client {
 	// Lazily creates the database connection and returns it
 	#getDb(): Database {
 		if (this.#db === null) {
-			this.#db = getDb(this.#sqlite3, this.#path, this.#poolUtil)
+			this.#db = createDb(this.#sqlite3, this.#path, this.#poolUtil)
 		}
 		return this.#db
 	}
@@ -330,6 +323,50 @@ export class Sqlite3Transaction implements Transaction {
 		}
 	}
 }
+const getAffectedTables = (node: any, set = new Set<string>()): Set<string> => {
+	if (!node || typeof node !== 'object') return set
+
+	// If this node is a table identifier, grab its name
+	if (node.type === 'identifier' && node.variant === 'table') {
+		set.add(node.name)
+	}
+
+	// Otherwise, dive into every child property/array
+	for (const key in node) {
+		const child = (node as any)[key]
+		if (Array.isArray(child)) {
+			child.forEach(n => getAffectedTables(n, set))
+		} else if (child && typeof child === 'object') {
+			getAffectedTables(child, set)
+		}
+	}
+
+	return set
+}
+
+const handleStatement = (statement: StatementNode) => {
+	// if (statement.variant === 'select') {
+	// }
+	// if (statement.variant === 'pragma') {
+	// 	return
+	// }
+	// if (statement.variant === 'update') {
+	// 	return
+	// }
+	// if (statement.variant === 'insert') {
+	// 	return
+	// }
+	// if (statement.variant === 'delete') {
+	// }
+	// // if (statement.variant === 'create') {
+	// // }
+	// if (statement.variant === 'transaction') {
+	// 	return
+	// }
+	console.log(statement)
+	const tables = getAffectedTables(statement)
+	console.log('Affected tables:', Array.from(tables))
+}
 
 function executeStmt(
 	db: Database,
@@ -356,7 +393,10 @@ function executeStmt(
 			}
 		}
 	}
-
+	const ast = sqliteParser(sql)
+	const tables = getAffectedTables(ast)
+	let affectedRows = new Set<string>()
+	console.log('Affected tables:', Array.from(tables))
 	try {
 		const sqlStmt = db.prepare(sql)
 
@@ -387,6 +427,9 @@ function executeStmt(
 				const values: unknown[] = sqlStmt.get([])
 				rows.push(rowFromSql(values, columns, intMode))
 			}
+			rows.forEach(row => {
+				row.id
+			})
 			const rowsAffected = 0
 			const lastInsertRowid = undefined
 			return new ResultSetImpl(

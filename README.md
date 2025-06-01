@@ -27,16 +27,20 @@ Your app is ready to be deployed!
 
 Learn more about deploying your application with the [documentations](https://vite.dev/guide/static-deploy.html)
 
+
 ```
 sqlite-sync
 ├─ bun.lock
 ├─ drizzle
-│  ├─ 0000_lying_jack_murdock.sql
+│  ├─ 0000_wild_sharon_ventura.sql
+│  ├─ 0001_solid_archangel.sql
 │  └─ meta
 │     ├─ 0000_snapshot.json
+│     ├─ 0001_snapshot.json
 │     └─ _journal.json
 ├─ drizzle.config.ts
 ├─ index.html
+├─ local.db
 ├─ package.json
 ├─ public
 │  └─ vite.svg
@@ -46,18 +50,29 @@ sqlite-sync
 │  ├─ assets
 │  │  └─ solid.svg
 │  ├─ components
+│  │  ├─ AddUser.tsx
+│  │  └─ Tabels.tsx
 │  ├─ consts
-│  │  └─ miagration.ts
+│  │  └─ migrations.ts
 │  ├─ index.css
 │  ├─ index.tsx
-│  ├─ schema.ts
-│  ├─ sqliteWorker.ts
+│  ├─ sqlite
+│  │  ├─ client-wasm.ts
+│  │  ├─ drivers.ts
+│  │  ├─ index.ts
+│  │  ├─ migrations.ts
+│  │  ├─ schema.ts
+│  │  └─ types.ts
+│  ├─ tests
+│  ├─ types
 │  ├─ utils
-│  │  └─ client-wasm.ts
+│  │  ├─ drizzleDriver.ts
+│  │  └─ pollyfills.ts
 │  └─ vite-env.d.ts
 ├─ tsconfig.app.json
 ├─ tsconfig.json
 ├─ tsconfig.node.json
-└─ vite.config.ts
+├─ vite.config.ts
+└─ vitest.config.ts
 
 ```

@@ -18,15 +18,23 @@
     "@tailwindcss/vite": "^4.1.8",
     "comlink": "^4.4.2",
     "drizzle-orm": "^0.44.1",
+    "murmurhash3js-revisited": "^3.0.0",
     "solid-js": "^1.9.5",
+    "sqlite-parser": "^1.0.1",
     "sqlocal": "0.2.0",
     "tailwindcss": "^4.1.8",
     "vite-plugin-top-level-await": "^1.5.0"
   },
   "devDependencies": {
+    "@types/murmurhash3js-revisited": "^3.0.3",
+    "@vitest/browser": "^3.1.4",
+    "@vitest/web-worker": "^3.1.4",
     "drizzle-kit": "^0.31.1",
+    "jsdom": "^26.1.0",
+    "playwright": "^1.52.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
+    "vite-plugin-compile-time": "^0.4.6",
     "vite-plugin-solid": "^2.11.6",
     "vite-plugin-worker": "^1.0.5",
     "vitest": "^3.1.4"
