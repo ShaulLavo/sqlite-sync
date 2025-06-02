@@ -1,8 +1,15 @@
-import { createSignal, For, onMount, Show, type Component } from 'solid-js'
+import {
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+	type Component
+} from 'solid-js'
 import { api } from '../App'
 import type { ChangeLog } from '../sqlite/schema'
 
-export const ChangeLogTable: Component<{ db: any }> = props => {
+export const ChangeLogTable: Component = () => {
 	const [logIdx, setLogIdx] = createSignal(0)
 	const [logs, setLogs] = createSignal<ChangeLog[]>([])
 	const [expandedRows, setExpandedRows] = createSignal<number[]>([])
@@ -21,12 +28,13 @@ export const ChangeLogTable: Component<{ db: any }> = props => {
 	}
 
 	const isExpanded = (id: number) => expandedRows().includes(id)
-
 	onMount(async () => {
+		let timerId: NodeJS.Timeout
 		await fetchLogs()
-		setInterval(() => {
+		timerId = setInterval(() => {
 			fetchLogs()
 		}, 1000)
+		onCleanup(() => timerId !== undefined && clearInterval(timerId))
 	})
 
 	return (

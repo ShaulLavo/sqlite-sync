@@ -21,16 +21,7 @@ declare module 'sqlite-parser' {
 		variant: 'list'
 		expression: ExpressionNode[]
 	}
-	export type TableIdentifierNode = {
-		type: 'identifier'
-		variant: 'table'
-		name: string
-	}
-	export type ColumnIdentifierNode = {
-		type: 'identifier'
-		variant: 'column'
-		name: string // e.g. "id" or "users.id"
-	}
+
 	export type BinaryOperationNode = {
 		type: 'expression'
 		format: 'binary'
@@ -56,13 +47,7 @@ declare module 'sqlite-parser' {
 		target: ColumnIdentifierNode
 		value: ExpressionNode
 	}
-	export type SelectStatementNode = {
-		type: 'statement'
-		variant: 'select'
-		result: ExpressionNode[]
-		from: TableIdentifierNode
-		where?: ExpressionNode[]
-	}
+
 	type PragmaStatementNode = {
 		type: 'statement'
 		variant: 'pragma'

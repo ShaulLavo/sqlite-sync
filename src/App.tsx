@@ -1,6 +1,6 @@
 import * as Comlink from 'comlink'
 import { drizzle, SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
-import { createSignal, onMount, type Component } from 'solid-js'
+import { createSignal, onCleanup, onMount, type Component } from 'solid-js'
 import { ChangeLogTable } from './components/ChangeLog'
 import { Data } from './components/Data'
 import { ManageUsers } from './components/Users/ManageUsers'
@@ -30,7 +30,7 @@ export const hasOPFS = async () => {
 }
 export const isPersisted = async (): Promise<boolean> =>
 	!!(navigator.storage && (await navigator.storage.persisted()))
-
+//TODO move this to a context or something
 const [db, setDb] = createSignal<SqliteRemoteDatabase<typeof schema>>(null!)
 const { driver, batchDriver } = getDrizzleDriver(api)
 const drizz = drizzle<typeof schema>(driver, batchDriver)
@@ -40,7 +40,7 @@ setDb(drizz)
 async function downloadLocalDB() {
 	const root = await navigator.storage.getDirectory()
 	const fileName = await api.dbFileName()
-	console.log(`Downloading database: ${name} (${fileName})`)
+	console.log(`Downloading database: (${fileName})`)
 	const fileHandle = await root.getFileHandle('local.db')
 
 	const file = await fileHandle.getFile()
@@ -60,11 +60,15 @@ async function downloadLocalDB() {
 }
 
 const App: Component = () => {
-	onMount(() => {
+	onMount(async () => {
 		const onChange: ChangeCallback = change => {
 			console.log('Change detected in users table:', change)
 		}
-		api.subscribeToAllChangesInTable('users', Comlink.proxy(onChange))
+		const unsubscribe = await api.subscribeToAllChangesInTable(
+			'users',
+			Comlink.proxy(onChange)
+		)
+		onCleanup(async () => unsubscribe())
 		// api.subscribeToAllChangesInTable('users', onChange)
 	})
 	return (
@@ -83,7 +87,7 @@ const App: Component = () => {
 					Download DB
 				</button>
 				<ManageUsers db={db()} />
-				<ChangeLogTable db={db()} />
+				<ChangeLogTable />
 				<Data db={db()} />
 			</div>
 		</div>

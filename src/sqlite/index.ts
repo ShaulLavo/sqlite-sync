@@ -228,7 +228,7 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 				getChangeLogsAtCursor(logCursor).then(({ rows }) => {
 					console.log({ l: rows.length, lastSeenId: logCursor })
 					if (rows.length === 0) return
-					logCursor = rows.length
+					logCursor = Math.max(...rows.map(r => r.id), logCursor)
 					cache.push(...rows)
 					for (const rec of rows) {
 						dispatchChangeNotification(rec)
@@ -272,7 +272,7 @@ const onClientReady = async () => {
 	const { rows } = await getChangeLogsAtCursor(0)
 	cache.length = 0
 	cache.push(...rows)
-	logCursor = rows.length
+	logCursor = Math.max(...rows.map(r => r.id), logCursor)
 	console.log('Worker: Client is ready!')
 }
 
@@ -345,7 +345,10 @@ api.batchRun = batchRun
 api.selectMigrations = selectMigrations
 api.driver = driver
 api.batchDriver = batchDriver
-api.dbFileName = () => db.dbFilename()
+api.dbFileName = async () => {
+	await clientReady
+	return db.dbFilename()
+}
 api.clientReady = clientReady
 api.getChangeLogsAtCursor = getChangeLogsAtCursor
 api.subscribeToChange = subscribeToChange

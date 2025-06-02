@@ -1,5 +1,3 @@
-'use client'
-
 import {
 	createEffect,
 	createSignal,
@@ -45,9 +43,19 @@ export const UserProfileModal: Component<{
 		})
 		setEditingUser(true)
 	}
-
+	const isValidUrl = (url: string) => {
+		try {
+			const parsed = new URL(url)
+			return ['http:', 'https:'].includes(parsed.protocol)
+		} catch {
+			return false
+		}
+	}
 	const saveUserChanges = () => {
 		if (!props.user) return
+		const picture = userForm().picture || ''
+		if (!isValidUrl(picture)) console.log('Invalid picture URL:', picture)
+
 		props.onUpdateUser(props.user.id, userForm())
 		setEditingUser(false)
 	}
@@ -124,7 +132,7 @@ export const UserProfileModal: Component<{
 													when={props.user?.picture}
 													fallback={
 														<span class="text-2xl font-bold text-gray-600">
-															{props.user?.name[0]}
+															{props.user?.name?.[0] || '?'}
 														</span>
 													}
 												>

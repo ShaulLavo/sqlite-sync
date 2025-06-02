@@ -1,7 +1,7 @@
 /* @refresh reload */
 import { render } from 'solid-js/web'
 import './index.css'
-import './utils/pollyfills.ts'
+import './utils/polyfills.ts'
 
 import App from './App.tsx'
 

@@ -39,4 +39,3 @@ export const migrationStatements: MigrationStatement[] = compileTime(() => {
 			(a: MigrationStatement, b: MigrationStatement) => a.version - b.version
 		)
 })
-console.log('Loaded migration statements:', migrationStatements)

@@ -4,7 +4,10 @@ export async function generateTriggersForTable(
 	client: Client,
 	tableName: string
 ) {
-	// 1) Fetch table_info
+	if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
+		throw new Error(`Invalid table name: ${tableName}`)
+	}
+	// PRAGMA’s syntax won’t let you use placeholders for identifier
 	const res = await client.execute(`PRAGMA table_info(${tableName});`)
 	const columns = res.columns as string[]
 	const rawRows = res.rows as Row[]
