@@ -33,6 +33,19 @@ export const posts = sqliteTable('posts', {
 	createdAt: text('created_at').notNull().default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updated_at').notNull().default('CURRENT_TIMESTAMP')
 })
+
+export const changeLog = sqliteTable('change_log', {
+	id: integer('id', { mode: 'number' })
+		.primaryKey({ autoIncrement: true })
+		.notNull(),
+	tbl_name: text('tbl_name').notNull(),
+	op_type: text('op_type').notNull(),
+	pk_json: text('pk_json').notNull(),
+	row_json: text('row_json').notNull(),
+	changed_at: text('changed_at')
+		.notNull()
+		.default(sql`(current_timestamp)`)
+})
 export type Migration = typeof migrations.$inferSelect
 export type NewMigration = typeof migrations.$inferInsert
 
@@ -41,3 +54,6 @@ export type NewUser = typeof users.$inferInsert
 
 export type Post = typeof posts.$inferSelect
 export type NewPost = typeof posts.$inferInsert
+
+export type ChangeLog = typeof changeLog.$inferSelect
+export type NewChangeLog = typeof changeLog.$inferInsert

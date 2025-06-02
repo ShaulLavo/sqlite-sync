@@ -213,17 +213,12 @@ export const ManageUsers: Component<{
 		}
 	}
 	const onRowClick = (user: User) => {
-		console.log('Row clicked:', user)
 		setSelectedUser(user)
 	}
 	onMount(fetchUsers)
 
 	return (
 		<div class="w-full  bg-white rounded-2xl shadow-lg p-6">
-			<h2 class="text-2xl font-semibold mb-4">Add New User</h2>
-			{error() && <p class="text-red-500 mb-2">Error: {error()}</p>}
-			{success() && <p class="text-green-600 mb-2">{success()}</p>}
-
 			{/* form */}
 			{/* table */}
 			<UsersTable
@@ -234,6 +229,10 @@ export const ManageUsers: Component<{
 				onUpdateEmail={updateEmail}
 				onRowClick={onRowClick}
 			/>
+			<div class="pb-5" />
+			<h2 class="text-2xl font-semibold mb-4">Add New User</h2>
+			{error() && <p class="text-red-500 mb-2">Error: {error()}</p>}
+			{success() && <p class="text-green-600 mb-2">{success()}</p>}
 			<AddUserForm addUser={addUser} loading={loading()} />
 			<UserProfileModal
 				isOpen={() => !!selectedUser()}

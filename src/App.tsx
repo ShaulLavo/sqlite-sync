@@ -1,11 +1,12 @@
 import * as Comlink from 'comlink'
 import { drizzle, SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
-import { createSignal, type Component } from 'solid-js'
-import { ManageUsers } from './components/Users/ManageUsers'
-import * as schema from './sqlite/schema'
-import type { Api } from './sqlite'
-import { getDrizzleDriver } from './utils/drizzleDriver'
+import { createSignal, onMount, type Component } from 'solid-js'
+import { ChangeLogTable } from './components/ChangeLog'
 import { Data } from './components/Data'
+import { ManageUsers } from './components/Users/ManageUsers'
+import type { Api, ChangeCallback } from './sqlite'
+import * as schema from './sqlite/schema'
+import { getDrizzleDriver } from './utils/drizzleDriver'
 
 const worker = new Worker(new URL('./sqlite/index.ts', import.meta.url), {
 	type: 'module'
@@ -59,6 +60,13 @@ async function downloadLocalDB() {
 }
 
 const App: Component = () => {
+	onMount(() => {
+		const onChange: ChangeCallback = change => {
+			console.log('Change detected in users table:', change)
+		}
+		api.subscribeToAllChangesInTable('users', Comlink.proxy(onChange))
+		// api.subscribeToAllChangesInTable('users', onChange)
+	})
 	return (
 		<div class="min-h-screen flex justify-center bg-gray-50 px-4">
 			<div class=" w-full bg-white p-8 ">
@@ -75,6 +83,7 @@ const App: Component = () => {
 					Download DB
 				</button>
 				<ManageUsers db={db()} />
+				<ChangeLogTable db={db()} />
 				<Data db={db()} />
 			</div>
 		</div>

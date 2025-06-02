@@ -25,7 +25,10 @@ import {
 	supportedUrlLink,
 	transactionModeToBegin
 } from '@libsql/core/util'
-import sqliteParser from 'sqlite-parser'
+// import sqliteParser, {
+// 	type StatementListNode,
+// 	type StatementNode
+// } from 'sqlite-parser'
 import type { ExpandedConfig, PoolUtil, Sqlite3ClientType } from './types'
 
 export * from '@libsql/core/api'
@@ -323,50 +326,24 @@ export class Sqlite3Transaction implements Transaction {
 		}
 	}
 }
-const getAffectedTables = (node: any, set = new Set<string>()): Set<string> => {
-	if (!node || typeof node !== 'object') return set
+// const getAffectedTables = (
+// 	node: StatementNode | StatementListNode,
+// 	set = new Set<string>()
+// ): Set<string> => {
+// 	if (!node || typeof node !== 'object') return set
+// 	if (!(node.type === 'statement')) return set
+// 	if (node.variant === 'select')
+// 		for (const key in node) {
+// 			const child = node[key as keyof StatementNode]
+// 			if (Array.isArray(child)) {
+// 				child.forEach(n => getAffectedTables(n, set))
+// 			} else if (child && typeof child === 'object') {
+// 				getAffectedTables(child, set)
+// 			}
+// 		}
 
-	// If this node is a table identifier, grab its name
-	if (node.type === 'identifier' && node.variant === 'table') {
-		set.add(node.name)
-	}
-
-	// Otherwise, dive into every child property/array
-	for (const key in node) {
-		const child = (node as any)[key]
-		if (Array.isArray(child)) {
-			child.forEach(n => getAffectedTables(n, set))
-		} else if (child && typeof child === 'object') {
-			getAffectedTables(child, set)
-		}
-	}
-
-	return set
-}
-
-const handleStatement = (statement: StatementNode) => {
-	// if (statement.variant === 'select') {
-	// }
-	// if (statement.variant === 'pragma') {
-	// 	return
-	// }
-	// if (statement.variant === 'update') {
-	// 	return
-	// }
-	// if (statement.variant === 'insert') {
-	// 	return
-	// }
-	// if (statement.variant === 'delete') {
-	// }
-	// // if (statement.variant === 'create') {
-	// // }
-	// if (statement.variant === 'transaction') {
-	// 	return
-	// }
-	console.log(statement)
-	const tables = getAffectedTables(statement)
-	console.log('Affected tables:', Array.from(tables))
-}
+// 	return set
+// }
 
 function executeStmt(
 	db: Database,
@@ -393,10 +370,12 @@ function executeStmt(
 			}
 		}
 	}
-	const ast = sqliteParser(sql)
-	const tables = getAffectedTables(ast)
-	let affectedRows = new Set<string>()
-	console.log('Affected tables:', Array.from(tables))
+	// const ast = sqliteParser(sql)
+	// const tables = Array.from(getAffectedTables(ast))
+	// if (tables.length > 0) {
+	// console.log('Affected tables:', tables)
+	// }
+
 	try {
 		const sqlStmt = db.prepare(sql)
 
