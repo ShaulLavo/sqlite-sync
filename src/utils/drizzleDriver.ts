@@ -1,43 +1,64 @@
-import type { Api } from '../sqliteWorker'
+import type { Api } from '../sqlite'
+import type { Sqlite3Method } from '../sqlite/types'
+import type { InArgs } from '../sqlite/client-wasm'
 
-type Sqlite3Method = 'get' | 'all' | 'run' | 'values'
+const serializeParams = (params: InArgs): string => {
+	if (Array.isArray(params)) {
+		return params.map(x => (x === null ? '∅' : String(x))).join('\u0000')
+	}
 
-export const getDrizzleDriver = async (api: Api) => {
+	const asObj = params as Record<string, string | number | boolean | null>
+	const keys = Object.keys(asObj).sort()
+	let out = ''
+	for (const k of keys) {
+		const v = asObj[k]
+		out += k + '\u0000' + (v === null ? '∅' : String(v)) + '\u0000'
+	}
+	return out
+}
+
+const makeKey = (
+	sql: string,
+	params: InArgs,
+	method: Sqlite3Method
+): string => {
+	const flatParams = serializeParams(params)
+	return sql + '\u0000' + flatParams + '\u0000' + method
+}
+
+const makeBatchKey = (
+	queries: { sql: string; params: InArgs; method: Sqlite3Method }[]
+): string => {
+	return queries
+		.map(({ sql, params, method }) => {
+			const flat = serializeParams(params)
+			return sql + '\u0000' + flat + '\u0000' + method
+		})
+		.join('\u0002')
+}
+
+export const getDrizzleDriver = (api: Api) => {
+	const cache = new Map()
+	type DriverResult = {
+		rows: any[][]
+	}
 	return {
-		driver: async (sql: string, params: unknown[], method: Sqlite3Method) => {
-			console.log(
-				'Drizzle driver called with SQL:',
-				JSON.stringify({ method }, null, 2)
-			)
-			const { rows: objectRows } = await api.run(sql, params)
-			if (!objectRows || objectRows.length === 0) {
-				return { rows: [] }
-			}
+		async driver(
+			sql: string,
+			params: InArgs,
+			method: Sqlite3Method
+		): Promise<DriverResult> {
+			const result = await api.driver(sql, params)
 
-			const columns = Object.keys(objectRows[0])
-
-			const values = objectRows.map((rowObj: Record<string, any>) =>
-				columns.map(colName => rowObj[colName])
-			)
-
-			return { rows: values }
+			return result
 		},
 
-		batchDriver: async (
-			queries: { sql: string; params: unknown[]; method: Sqlite3Method }[]
-		) => {
-			const rawResults = await api.batchRun(queries)
+		async batchDriver(
+			queries: { sql: string; params: InArgs; method: Sqlite3Method }[]
+		): Promise<DriverResult[]> {
+			const results = await api.batchDriver(queries)
 
-			return rawResults.map(({ rows: objectRows }) => {
-				if (!objectRows || objectRows.length === 0) {
-					return { rows: [] }
-				}
-				const columns = Object.keys(objectRows[0])
-				const values = objectRows.map((rowObj: Record<string, any>) =>
-					columns.map(colName => rowObj[colName])
-				)
-				return { rows: values }
-			})
+			return results
 		}
 	}
 }
