@@ -4,6 +4,7 @@ import { GameOfLife } from '../components/GameOfLife'
 import { ManageUsers } from '../components/Users/ManageUsers'
 import { useDb } from '../context/DbProvider'
 import * as schema from '../sqlite/schema'
+import { downloadDatabase } from '../utils/download'
 // import { api } from '../App'
 
 const Home: Component = () => {
@@ -38,7 +39,7 @@ const Home: Component = () => {
 				</p>
 				<button
 					class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-md text-base leading-relaxed mb-6"
-					onClick={async () => await api.downloadLocalDB(api)}
+					onClick={async () => await downloadDatabase(api)}
 				>
 					Download DB
 				</button>

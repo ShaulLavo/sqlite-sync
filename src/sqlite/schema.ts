@@ -75,8 +75,8 @@ export type NewChangeLog = typeof changeLog.$inferInsert
 export const cells = sqliteTable(
 	'cells',
 	{
-		x: integer('x'),
-		y: integer('y'),
+		x: integer('x', { mode: 'number' }).notNull(),
+		y: integer('y', { mode: 'number' }).notNull(),
 		alive: integer('alive', { mode: 'boolean' }).default(false).notNull()
 	},
 	table => [primaryKey({ columns: [table.x, table.y] })]

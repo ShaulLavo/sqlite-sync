@@ -292,7 +292,6 @@ const initClient = async () => {
 
 		setupChangeNotificationSystem(sqlite3) // run this after DB is initialized
 		drizzleClient = drizzle(client, { schema })
-		clientReady.then(onClientReady)
 		resolve(true)
 	} catch (err) {
 		console.error('Worker: Error initializing client:', err)
@@ -396,26 +395,17 @@ const getNewChangeLogs = async (from: number) => {
 	}
 	return { rows }
 }
-export async function downloadLocalDB(api: Api) {
+export async function downloadLocalDB(): Promise<Blob> {
+	await clientReady
 	const root = await navigator.storage.getDirectory()
-	const fileName = await api.dbFileName()
-	console.log(`Downloading database: (${fileName})`)
+	const fileName = db.dbFilename()
+	console.log(`Preparing database download: (${fileName})`)
 	const fileHandle = await root.getFileHandle('local.db')
 
 	const file = await fileHandle.getFile()
 	const arrayBuffer = await file.arrayBuffer()
 
-	const blob = new Blob([arrayBuffer], { type: 'application/x-sqlite3' })
-	const url = URL.createObjectURL(blob)
-
-	const a = document.createElement('a')
-	a.href = url
-	a.download = 'local.db'
-	document.body.appendChild(a)
-	a.click()
-	a.remove()
-
-	URL.revokeObjectURL(url)
+	return new Blob([arrayBuffer], { type: 'application/x-sqlite3' })
 }
 const api = (cb: () => any) => {
 	console.log('Worker: API called')
@@ -441,7 +431,6 @@ api.subscribeToAllChangesInTable = subscribeToAllChangesInTable
 api.unsubscribeFromChange = unsubscribeFromChange
 api.subscribeToChangeLog = subscribeToChangeLog
 api.downloadLocalDB = downloadLocalDB
-api.disconnect = () => {}
 
 let ports: MessagePort[] = []
 declare let onconnect: (e: MessageEvent) => void
@@ -453,11 +442,14 @@ onconnect = (e: MessageEvent) => {
 	const disconnect = () => {
 		ports = ports.filter(p => p !== port)
 	}
-	api.disconnect = disconnect
-	Comlink.expose(api, port)
+	// Create a per-port API object that includes the port-specific disconnect method
+	const portApi = {
+		...api,
+		disconnect
+	}
+	Comlink.expose(portApi, port)
 }
 
-initClient()
-clientReady.then(onClientReady)
+initClient().then(onClientReady)
 
 export type Api = Comlink.RemoteObject<typeof api>

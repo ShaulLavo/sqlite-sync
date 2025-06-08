@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/murmurhash3js-revisited": "^3.0.3",
-    "@types/sharedworker": "^0.0.162",
+    "@types/sharedworker": "^0.0.164",
     "@vitest/browser": "^3.1.4",
     "@vitest/web-worker": "^3.1.4",
     "drizzle-kit": "^0.31.1",
