@@ -103,13 +103,13 @@ export function _createClient(
 	}
 
 	const path = config.path
-	const options = {
-		authToken: config.authToken,
-		syncUrl: config.syncUrl
-	}
+	// const options = {
+	// 	authToken: config.authToken,
+	// 	syncUrl: config.syncUrl
+	// }
 	const db = createDb(sqlite3, path, config.poolUtil)
 	executeStmt(db, 'SELECT 1 AS checkThatTheDatabaseCanBeOpened', config.intMode)
-	const res = executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
+	executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
 	const clinet = new Sqlite3Client(
 		sqlite3,
 		path,

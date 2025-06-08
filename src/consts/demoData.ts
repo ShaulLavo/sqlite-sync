@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import * as schema from '../sqlite/schema'
 const { users, posts } = schema

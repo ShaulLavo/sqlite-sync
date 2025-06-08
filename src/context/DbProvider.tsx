@@ -15,9 +15,6 @@ const DbContext = createContext<{
 	api: Api
 }>()
 
-const sleep = (ms: number): Promise<void> =>
-	new Promise(resolve => setTimeout(resolve, ms))
-
 function getDrizzleInstance(api: Api) {
 	const { promise, resolve, reject } =
 		Promise.withResolvers<SqliteRemoteDatabase<typeof schema>>()

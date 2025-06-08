@@ -22,13 +22,6 @@ export const useLiveChangeLog = (windowSize = 12) => {
 
 	let unsubscribe: (() => void) | null = null
 
-	const trimToMax = (draft: ChangeLog[], maxItems: number) => {
-		// this is broken
-		while (draft.length > maxItems) {
-			draft.pop()
-		}
-	}
-
 	const pullNewRows = async () => {
 		const { rows } = await api.getNewChangeLogs(highestSeenId)
 		if (!rows.length) return

@@ -31,15 +31,6 @@ export default function PlaceCanvas() {
 		return (255 << 24) | (b << 16) | (g << 8) | r
 	}
 
-	function uint32ToHex(color: number): string {
-		const r = color & 0xff
-		const g = (color >> 8) & 0xff
-		const b = (color >> 16) & 0xff
-		return `#${r.toString(16).padStart(2, '0')}${g
-			.toString(16)
-			.padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-	}
-
 	onMount(() => {
 		if (!canvasRef) return
 

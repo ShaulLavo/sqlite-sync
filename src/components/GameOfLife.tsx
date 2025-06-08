@@ -93,15 +93,15 @@ export function GameOfLife() {
 	})
 	return (
 		<div>
-			<button onClick={toggleRun}>{running() ? 'Stop' : 'Start'}</button>
+			<button type="button" onClick={toggleRun}>
+				{running() ? 'Stop' : 'Start'}
+			</button>
 			<div
+				class="grid gap-px mt-2"
 				style={{
-					display: 'grid',
 					'grid-template-columns': `repeat(${
 						Math.max(...cells.map(c => c.x!)) + 1
-					}, 12px)`,
-					gap: '1px',
-					'margin-top': '8px'
+					}, 12px)`
 				}}
 			>
 				<For each={sorted()}>
@@ -120,12 +120,9 @@ export function GameOfLife() {
 									)
 									.run()
 							}}
-							style={{
-								width: '12px',
-								height: '12px',
-								background: cell.alive ? 'red' : 'green',
-								cursor: 'pointer'
-							}}
+							class={`w-3 h-3 cursor-pointer ${
+								cell.alive ? 'bg-red-500' : 'bg-green-500'
+							}`}
 						/>
 					)}
 				</For>

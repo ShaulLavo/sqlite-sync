@@ -5,7 +5,7 @@ import {
 } from '@libsql/libsql-wasm-experimental'
 import sqlite3InitModule from '@libsql/libsql-wasm-experimental'
 import * as Comlink from 'comlink'
-import { asc, desc, gt } from 'drizzle-orm'
+import { desc, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { generateTriggersForTable } from '../utils/triggers'
 import { createClient, type InArgs, type Sqlite3Client } from './client-wasm'
@@ -22,12 +22,7 @@ const {
 	resolve,
 	reject
 } = Promise.withResolvers<boolean>()
-type UpdateEvent = {
-	operation: 'INSERT' | 'UPDATE' | 'DELETE'
-	dbName: string
-	tableName: string
-	rowid: string
-}
+
 export type ChangeCallback = (change: schema.ChangeLog) => void
 export type ChangeLogCallback = (change: schema.ChangeLog[]) => void
 type TableName = keyof typeof schema
@@ -449,7 +444,8 @@ api.downloadLocalDB = downloadLocalDB
 api.disconnect = () => {}
 
 let ports: MessagePort[] = []
-onconnect = e => {
+declare let onconnect: (e: MessageEvent) => void
+onconnect = (e: MessageEvent) => {
 	const port = e.ports[0]
 	ports.push(port)
 	console.log(ports.length, 'ports connected')
