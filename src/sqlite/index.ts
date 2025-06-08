@@ -452,4 +452,4 @@ onconnect = (e: MessageEvent) => {
 
 initClient().then(onClientReady)
 
-export type Api = Comlink.RemoteObject<typeof api>
+export type Api = Comlink.RemoteObject<typeof api & { disconnect: () => void }>

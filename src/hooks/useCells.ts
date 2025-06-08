@@ -4,7 +4,7 @@ import { createStore, produce, reconcile } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
 import { cells as cellsSchema } from '../sqlite/schema'
 
-export type Cell = { x: number | null; y: number | null; alive: boolean }
+export type Cell = { x: number; y: number; alive: boolean }
 
 export function useCells(width = 50, height = 30) {
 	const { db, api } = useDb()
@@ -18,12 +18,13 @@ export function useCells(width = 50, height = 30) {
 		const total = width * height
 		if (existing.length !== total) {
 			await database.delete(cellsSchema).run()
-			const batch: Cell[] = []
+			let batch: Cell[] = []
 			for (let x = 0; x < width; x++) {
 				for (let y = 0; y < height; y++) {
 					batch.push({ x, y, alive: false })
 				}
 			}
+			batch = batch.filter(c => c.x != null && c.y != null) // TODO: is this needed?
 			if (!batch.length) return
 			await database.insert(cellsSchema).values(batch).run()
 
