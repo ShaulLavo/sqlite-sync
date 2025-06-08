@@ -161,7 +161,6 @@ function dispatchChangeNotification(change: schema.ChangeLog) {
 		}
 	}
 
-	// Now notify the callbacks subscribed to the exact PK:
 	const pkString = change.pk_json
 	const pkSet = tableMap.get(pkString)
 	if (!pkSet) return
@@ -213,7 +212,6 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 		23: 'UPDATE'
 	}
 
-	// Listen to every row‐level change
 	sqlite3.capi.sqlite3_update_hook(
 		db.pointer! as WasmPointer,
 		(
@@ -233,16 +231,11 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 		0 as WasmPointer
 	)
 
-	// On commit, read the persisted change_log rows, update ledger, and notify
 	sqlite3.capi.sqlite3_commit_hook(
 		db.pointer! as WasmPointer,
 		(_cbArg: WasmPointer) => {
 			if (changeLogBuffer.length === 0) {
-				// const { rows } = getNewChangeLogsSync(0)
-				// console.log(rows)
-				// if (rows.length == 0) notifyChangeLogSubscribers(rows)
-
-				console.log('TODO TELL THEM TO DELETE ALL MAYBE')
+				console.log('No changes in transaction buffer')
 			} else {
 				for (const rec of changeLogBuffer) {
 					console.log(
@@ -252,7 +245,6 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 					)
 				}
 
-				// Fetch the rows that were just written into change_log
 				const { rows } = getNewChangeLogsSync(logCursor)
 				console.log(
 					`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
@@ -283,14 +275,20 @@ const initClient = async () => {
 		const { rows } = await client.execute(
 			`SELECT name FROM sqlite_master WHERE type='table';`
 		)
-		await Promise.all(
+		const triggerResults = await Promise.allSettled(
 			rows
 				.map(row => row.name as string)
 				.filter(n => !n.includes('sqlite_') && n !== 'change_log')
 				.map(n => generateTriggersForTable(client, n))
 		)
 
-		setupChangeNotificationSystem(sqlite3) // run this after DB is initialized
+		triggerResults.forEach(result => {
+			if (result.status === 'rejected') {
+				console.error(`Failed to generate triggers for table:`, result.reason)
+			}
+		})
+
+		setupChangeNotificationSystem(sqlite3)
 		drizzleClient = drizzle(client, { schema })
 		resolve(true)
 	} catch (err) {
@@ -345,8 +343,8 @@ const selectMigrations = async () => {
 
 	return drizzleClient.select().from(schema.migrations).all()
 }
+
 const getNewChangeLogsSync = (lastSeenLogId: number) => {
-	// Raw SQL to fetch everything with `id > lastSeenLogId`, ordered descending
 	const result = client.executeSync(
 		`SELECT *
 		   FROM change_log
@@ -442,7 +440,7 @@ onconnect = (e: MessageEvent) => {
 	const disconnect = () => {
 		ports = ports.filter(p => p !== port)
 	}
-	// Create a per-port API object that includes the port-specific disconnect method
+
 	const portApi = {
 		...api,
 		disconnect

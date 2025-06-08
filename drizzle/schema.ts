@@ -16,8 +16,12 @@ export const posts = sqliteTable('posts', {
 		.references(() => users.id, { onDelete: 'cascade' }),
 	title: text().notNull(),
 	body: text().notNull(),
-	createdAt: text('created_at').default('sql`(CURRENT_TIMESTAMP)`').notNull(),
-	updatedAt: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`').notNull()
+	createdAt: text('created_at')
+		.default(sql`(CURRENT_TIMESTAMP)`)
+		.notNull(),
+	updatedAt: text('updated_at')
+		.default(sql`(CURRENT_TIMESTAMP)`)
+		.notNull()
 })
 
 export const users = sqliteTable(
@@ -56,5 +60,7 @@ export const changeLog = sqliteTable('change_log', {
 
 export const migrations = sqliteTable('migrations', {
 	name: text().primaryKey().notNull(),
-	appliedAt: text('applied_at').default('sql`(current_timestamp)`').notNull()
+	appliedAt: text('applied_at')
+		.default(sql`(current_timestamp)`)
+		.notNull()
 })

@@ -1,5 +1,3 @@
-'use client'
-
 import { createSignal, createEffect, onMount } from 'solid-js'
 import { ColorPicker } from './colorPicker'
 
@@ -32,13 +30,19 @@ export default function PlaceCanvas() {
 	}
 
 	onMount(() => {
-		if (!canvasRef) return
+		if (!canvasRef) {
+			console.error('Canvas ref not available')
+			return
+		}
 
 		canvasRef.width = GRID_SIZE
 		canvasRef.height = GRID_SIZE
 
 		const ctx = canvasRef.getContext('2d')
-		if (!ctx) return
+		if (!ctx) {
+			console.error('Canvas context not available')
+			return
+		}
 
 		ctx.fillStyle = '#FFFFFF'
 		ctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE)
@@ -93,7 +97,7 @@ export default function PlaceCanvas() {
 
 		renderCanvas()
 	}
-
+	let mouseRenderTimeout: NodeJS.Timeout | undefined
 	function handleCanvasMouseMove(e: MouseEvent) {
 		if (!canvasRef) return
 
@@ -108,7 +112,8 @@ export default function PlaceCanvas() {
 
 		setHoveredPixel({ x, y })
 
-		renderCanvas()
+		if (mouseRenderTimeout) clearTimeout(mouseRenderTimeout)
+		mouseRenderTimeout = setTimeout(() => renderCanvas(), 16) // ~60fps
 	}
 
 	function handleCanvasMouseOut() {
