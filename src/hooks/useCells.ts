@@ -37,14 +37,10 @@ export function useCells(width = 50, height = 30) {
 		api.subscribeToAllChangesInTable(
 			'cells',
 			Comlink.proxy((change: any) => {
-				const row: Cell | null = change.row_json
-					? JSON.parse(change.row_json)
-					: null
-				const pk: { x: number; y: number } | null = change.pk_json
-					? JSON.parse(change.pk_json)
-					: null
+				const row: Cell = JSON.parse(change.row_json)
+				const pk: { x: number; y: number } = JSON.parse(change.pk_json)
 
-				if (change.op_type === 'INSERT' && row) {
+				if (change.op_type === 'INSERT') {
 					setCells(
 						produce(arr => {
 							arr.push(row)
@@ -52,7 +48,7 @@ export function useCells(width = 50, height = 30) {
 					)
 				}
 
-				if (change.op_type === 'UPDATE' && row) {
+				if (change.op_type === 'UPDATE') {
 					setCells(
 						produce(arr => {
 							const i = arr.findIndex(c => c.x === row.x && c.y === row.y)
@@ -61,7 +57,7 @@ export function useCells(width = 50, height = 30) {
 					)
 				}
 
-				if (change.op_type === 'DELETE' && pk) {
+				if (change.op_type === 'DELETE') {
 					setCells(
 						reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
 					)

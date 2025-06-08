@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "generate-migrations": "bun scripts/generate-migrations.ts",
+    "db:generate": "npx drizzle-kit generate && bun scripts/generate-migrations.ts"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.8.2",
@@ -38,7 +40,6 @@
     "playwright": "^1.52.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
-    "vite-plugin-compile-time": "^0.4.6",
     "vite-plugin-solid": "^2.11.6",
     "vite-plugin-worker": "^1.0.5",
     "vitest": "^3.1.4"

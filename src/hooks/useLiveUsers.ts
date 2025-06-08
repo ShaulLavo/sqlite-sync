@@ -45,14 +45,15 @@ export const useUsers = () => {
 				}
 			})
 		)
-		createEffect(async () => {
-			if (users.length === 0) {
-				await seedDemoData(database)
-				const initialUsers = await database.select().from(schema.users).all()
+	})
+	createEffect(async () => {
+		if (users.length === 0) {
+			const database = await db
+			await seedDemoData(database)
+			const initialUsers = await database.select().from(schema.users).all()
 
-				setUsers(initialUsers)
-			}
-		})
+			setUsers(initialUsers)
+		}
 	})
 
 	return users
