@@ -17,6 +17,7 @@ export const migrationStatements: MigrationStatement[] = compileTime(() => {
 		.readdirSync(migrationsDir)
 		.filter(f => f.endsWith('.sql'))
 		.sort()
+	console.log('files', files)
 	return files
 		.map(filename => {
 			const baseName = path.basename(filename, '.sql')

@@ -38,7 +38,6 @@ const makeBatchKey = (
 }
 
 export const getDrizzleDriver = (api: Api) => {
-	const cache = new Map()
 	type DriverResult = {
 		rows: any[][]
 	}

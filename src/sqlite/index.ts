@@ -1,22 +1,22 @@
-import type {
+import {
 	Database,
-	Sqlite3Static,
-	WasmPointer
+	type Sqlite3Static,
+	type WasmPointer
 } from '@libsql/libsql-wasm-experimental'
 import sqlite3InitModule from '@libsql/libsql-wasm-experimental'
 import * as Comlink from 'comlink'
-import { desc, gte, gt } from 'drizzle-orm'
+import { asc, desc, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { generateTriggersForTable } from '../utils/triggers'
-import { createClient, type Client, type InArgs } from './client-wasm'
+import { createClient, type InArgs, type Sqlite3Client } from './client-wasm'
 import { batchDriver as batchDriverFn, driver as driverFn } from './drivers'
 import { runMigrations } from './migrations'
 import * as schema from './schema'
 import type { DriverQuery, Sqlite3Method } from './types'
 
 let db: Database
-let client: Client
-let drizzileClient: ReturnType<typeof drizzle>
+let client: Sqlite3Client
+let drizzleClient: ReturnType<typeof drizzle>
 const {
 	promise: clientReady,
 	resolve,
@@ -26,15 +26,15 @@ type UpdateEvent = {
 	operation: 'INSERT' | 'UPDATE' | 'DELETE'
 	dbName: string
 	tableName: string
-	rowid: BigInt
+	rowid: string
 }
 export type ChangeCallback = (change: schema.ChangeLog) => void
+export type ChangeLogCallback = (change: schema.ChangeLog[]) => void
 type TableName = keyof typeof schema
 type PrimaryKey = string
 const subscribers = new Map<TableName, Map<PrimaryKey, Set<ChangeCallback>>>()
+const changeLogSubscribers = new Set<ChangeLogCallback>()
 let logCursor = 0
-
-const cache = [] as schema.ChangeLog[]
 
 /**
  * Subscribe to change events for a given table + primary key.
@@ -42,11 +42,15 @@ const cache = [] as schema.ChangeLog[]
  * @param primaryKey  An object representing the PK fields (e.g. { id: 42 }).
  * @param callback  Invoked whenever a matching change fires.
  */
-function subscribeToChange(
+async function subscribeToChange(
 	tableName: TableName,
 	primaryKey: Record<string, unknown>,
 	callback: ChangeCallback
 ) {
+	await clientReady
+	console.log('Worker: New subscriber for', tableName, primaryKey)
+	console.log(location.origin)
+
 	const pkString = JSON.stringify(primaryKey)
 	let tableMap = subscribers.get(tableName)
 	if (!tableMap) {
@@ -95,10 +99,12 @@ function unsubscribeFromChange(
 /**
  * Subscribe to all changes in a given table (regardless of PK).
  */
-function subscribeToAllChangesInTable(
+async function subscribeToAllChangesInTable(
 	tableName: TableName,
 	callback: ChangeCallback
 ) {
+	await clientReady
+	console.log('Worker: New subscriber for all changes in', tableName)
 	let tableMap = subscribers.get(tableName)
 	if (!tableMap) {
 		tableMap = new Map()
@@ -143,6 +149,9 @@ function unsubscribeFromAllChangesInTable(
  */
 function dispatchChangeNotification(change: schema.ChangeLog) {
 	const tableMap = subscribers.get(change.tbl_name as TableName)
+	console.log(
+		`Worker: Dispatching change notification for ${change.tbl_name} (${change.op_type})`
+	)
 	if (!tableMap) return
 
 	const wildcardKey = '*'
@@ -170,6 +179,26 @@ function dispatchChangeNotification(change: schema.ChangeLog) {
 		}
 	}
 }
+
+const subscribeToChangeLog = async (callback: ChangeLogCallback) => {
+	console.log('Worker: New change log subscriber')
+	await clientReady
+	changeLogSubscribers.add(callback)
+
+	return Comlink.proxy(() => {
+		changeLogSubscribers.delete(callback)
+	})
+}
+
+const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
+	for (const cb of changeLogSubscribers) {
+		try {
+			cb(changes)
+		} catch (err) {
+			console.error('[Change Log Dispatch Error]', err)
+		}
+	}
+}
 /**
  * Sets up SQLite hooks to record every INSERT/UPDATE/DELETE,
  * then on transaction commit, fetches detailed rows from the change_log,
@@ -180,7 +209,7 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 		operation: 'INSERT' | 'UPDATE' | 'DELETE'
 		dbName: string
 		tableName: string
-		rowid: BigInt
+		rowid: string
 	}> = []
 
 	const OpNames: Record<number, 'DELETE' | 'INSERT' | 'UPDATE'> = {
@@ -203,7 +232,7 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 				operation: OpNames[op],
 				dbName,
 				tableName,
-				rowid
+				rowid: rowid.toString()
 			})
 		},
 		0 as WasmPointer
@@ -214,7 +243,11 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 		db.pointer! as WasmPointer,
 		(_cbArg: WasmPointer) => {
 			if (changeLogBuffer.length === 0) {
-				console.log('[SQLITE COMMIT HOOK] No changes in this transaction.')
+				// const { rows } = getNewChangeLogsSync(0)
+				// console.log(rows)
+				// if (rows.length == 0) notifyChangeLogSubscribers(rows)
+
+				console.log('TODO TELL THEM TO DELETE ALL MAYBE')
 			} else {
 				for (const rec of changeLogBuffer) {
 					console.log(
@@ -225,15 +258,16 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 				}
 
 				// Fetch the rows that were just written into change_log
-				getChangeLogsAtCursor(logCursor).then(({ rows }) => {
-					console.log({ l: rows.length, lastSeenId: logCursor })
-					if (rows.length === 0) return
-					logCursor = Math.max(...rows.map(r => r.id), logCursor)
-					cache.push(...rows)
-					for (const rec of rows) {
-						dispatchChangeNotification(rec)
-					}
-				})
+				const { rows } = getNewChangeLogsSync(logCursor)
+				console.log(
+					`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
+				)
+				if (rows.length === 0) return 0
+				notifyChangeLogSubscribers(rows)
+				logCursor = Math.max(...rows.map(r => r.id), logCursor)
+				for (const rec of rows) {
+					dispatchChangeNotification(rec)
+				}
 			}
 
 			changeLogBuffer.length = 0
@@ -251,17 +285,19 @@ const initClient = async () => {
 		;[client, db] = createClient({ url: path }, sqlite3)
 		await client.execute(`PRAGMA foreign_keys = ON;`)
 		await runMigrations(client)
-		const res = await client.execute(
+		const { rows } = await client.execute(
 			`SELECT name FROM sqlite_master WHERE type='table';`
 		)
-		const triggers = res.rows
-			.map(row => row.name as string)
-			.filter(n => !n.includes('sqlite_') && n !== 'change_log')
-			.map(n => generateTriggersForTable(client, n))
-		await Promise.all(triggers)
-		setupChangeNotificationSystem(sqlite3) // run this after DB is initialized
-		drizzileClient = drizzle(client, { schema })
+		await Promise.all(
+			rows
+				.map(row => row.name as string)
+				.filter(n => !n.includes('sqlite_') && n !== 'change_log')
+				.map(n => generateTriggersForTable(client, n))
+		)
 
+		setupChangeNotificationSystem(sqlite3) // run this after DB is initialized
+		drizzleClient = drizzle(client, { schema })
+		clientReady.then(onClientReady)
 		resolve(true)
 	} catch (err) {
 		console.error('Worker: Error initializing client:', err)
@@ -269,10 +305,10 @@ const initClient = async () => {
 	}
 }
 const onClientReady = async () => {
-	const { rows } = await getChangeLogsAtCursor(0)
-	cache.length = 0
-	cache.push(...rows)
+	const { rows } = await getNewChangeLogs(0)
+
 	logCursor = Math.max(...rows.map(r => r.id), logCursor)
+	notifyChangeLogSubscribers(rows)
 	console.log('Worker: Client is ready!')
 }
 
@@ -313,28 +349,79 @@ const batchDriver = async (queries: DriverQuery[]) => {
 const selectMigrations = async () => {
 	await clientReady
 
-	return drizzileClient.select().from(schema.migrations).all()
+	return drizzleClient.select().from(schema.migrations).all()
+}
+const getNewChangeLogsSync = (lastSeenLogId: number) => {
+	// Raw SQL to fetch everything with `id > lastSeenLogId`, ordered descending
+	const result = client.executeSync(
+		`SELECT *
+		   FROM change_log
+		  WHERE id > ?
+		  ORDER BY id DESC`,
+		[lastSeenLogId]
+	)
+
+	const rows = result.rows as any as schema.ChangeLog[]
+	if (rows.length > 0) {
+		console.log(
+			`Worker: getNewChangeLogsSync: Found ${rows.length} new change logs since last seen ID ${lastSeenLogId}`
+		)
+	}
+
+	return { rows }
 }
 
-const getChangeLogsAtCursor = async (lastSeenLogId: number) => {
+const getChangeLogs = async (offset: number, limit: number) => {
 	await clientReady
 
-	// Assuming your change_log schema has an auto‐increment “id” column:
-
-	const rows = await drizzileClient
+	const rows = await drizzleClient
 		.select()
 		.from(schema.changeLog)
-		.where(gt(schema.changeLog.id, lastSeenLogId))
+		.orderBy(desc(schema.changeLog.id))
+		.limit(limit)
+		.offset(offset)
+		.all()
+
+	return { rows }
+}
+
+const getNewChangeLogs = async (from: number) => {
+	await clientReady
+
+	const rows = await drizzleClient
+		.select()
+		.from(schema.changeLog)
+		.where(gt(schema.changeLog.id, from))
 		.orderBy(desc(schema.changeLog.id))
 		.all()
 	if (rows.length > 0) {
 		console.log(
-			`Worker: Found ${rows.length} new change logs since last seen ID ${lastSeenLogId}`
+			`Worker: getNewChangeLogs: Found ${rows.length} new change logs since last seen ID ${from}`
 		)
 	}
 	return { rows }
 }
+export async function downloadLocalDB(api: Api) {
+	const root = await navigator.storage.getDirectory()
+	const fileName = await api.dbFileName()
+	console.log(`Downloading database: (${fileName})`)
+	const fileHandle = await root.getFileHandle('local.db')
 
+	const file = await fileHandle.getFile()
+	const arrayBuffer = await file.arrayBuffer()
+
+	const blob = new Blob([arrayBuffer], { type: 'application/x-sqlite3' })
+	const url = URL.createObjectURL(blob)
+
+	const a = document.createElement('a')
+	a.href = url
+	a.download = 'local.db'
+	document.body.appendChild(a)
+	a.click()
+	a.remove()
+
+	URL.revokeObjectURL(url)
+}
 const api = (cb: () => any) => {
 	console.log('Worker: API called')
 	return cb()
@@ -350,14 +437,31 @@ api.dbFileName = async () => {
 	return db.dbFilename()
 }
 api.clientReady = clientReady
-api.getChangeLogsAtCursor = getChangeLogsAtCursor
+api.getChangeLogs = (opts: { offset: number; limit: number }) =>
+	getChangeLogs(opts.offset, opts.limit)
+api.getNewChangeLogs = getNewChangeLogs
+
 api.subscribeToChange = subscribeToChange
 api.subscribeToAllChangesInTable = subscribeToAllChangesInTable
 api.unsubscribeFromChange = unsubscribeFromChange
+api.subscribeToChangeLog = subscribeToChangeLog
+api.downloadLocalDB = downloadLocalDB
+api.disconnect = () => {}
 
-export type Api = Comlink.RemoteObject<typeof api>
-
-Comlink.expose(api, self as any)
+let ports: MessagePort[] = []
+onconnect = e => {
+	const port = e.ports[0]
+	ports.push(port)
+	console.log(ports.length, 'ports connected')
+	port.start()
+	const disconnect = () => {
+		ports = ports.filter(p => p !== port)
+	}
+	api.disconnect = disconnect
+	Comlink.expose(api, port)
+}
 
 initClient()
 clientReady.then(onClientReady)
+
+export type Api = Comlink.RemoteObject<typeof api>

@@ -35,7 +35,7 @@ export * from '@libsql/core/api'
 export function createClient(
 	config: Config,
 	sqlite3: Sqlite3ClientType
-): [Client, Database] {
+): [Sqlite3Client, Database] {
 	return _createClient(expandConfig(config, true), sqlite3)
 }
 
@@ -61,7 +61,7 @@ function createDb(
 export function _createClient(
 	config: ExpandedConfig,
 	sqlite3: Sqlite3ClientType
-): [Client, Database] {
+): [Sqlite3Client, Database] {
 	if (config.scheme !== 'file') {
 		throw new LibsqlError(
 			`URL scheme ${JSON.stringify(
@@ -110,7 +110,6 @@ export function _createClient(
 	const db = createDb(sqlite3, path, config.poolUtil)
 	executeStmt(db, 'SELECT 1 AS checkThatTheDatabaseCanBeOpened', config.intMode)
 	const res = executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
-	console.log('table_info(users)', res.rows[0])
 	const clinet = new Sqlite3Client(
 		sqlite3,
 		path,
@@ -156,6 +155,22 @@ export class Sqlite3Client implements Client {
 		stmtOrSql: InStatement | string,
 		args?: InArgs
 	): Promise<ResultSet> {
+		let stmt: InStatement
+
+		if (typeof stmtOrSql === 'string') {
+			stmt = {
+				sql: stmtOrSql,
+				args: args || []
+			}
+		} else {
+			stmt = stmtOrSql
+		}
+
+		this.#checkNotClosed()
+		return executeStmt(this.#getDb(), stmt, this.#intMode)
+	}
+
+	executeSync(stmtOrSql: InStatement | string, args?: InArgs): ResultSet {
 		let stmt: InStatement
 
 		if (typeof stmtOrSql === 'string') {

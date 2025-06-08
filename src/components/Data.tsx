@@ -1,20 +1,21 @@
-import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import { createEffect, createResource, createSignal, For } from 'solid-js'
-import { api, hasOPFS, isPersisted } from '../App'
-import type { Migration, Post, User } from '../sqlite/schema'
+import { useDb } from '../context/DbProvider'
+import type { Migration, Post } from '../sqlite/schema'
 import * as schema from '../sqlite/schema'
+import { hasOPFS, isPersisted } from '../utils/storage'
+import { useUsers } from '../hooks/useLiveUsers'
 
-export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
+export const Data = () => {
+	const { api, db } = useDb()
 	const [reply, setReply] = createSignal<string>('No reply yet')
-	const [users, setUsers] = createSignal<User[]>([])
+	const users = useUsers()
 	const [posts, setPosts] = createSignal<Post[]>([])
 	const [migrations, setMigrations] = createSignal<Migration[]>([])
 	const [loading, setLoading] = createSignal<boolean>(true)
 	const [error, setError] = createSignal<string | null>(null)
 	// New resources
 	const [isOpfs] = createResource(hasOPFS)
-	const [hasPersistence, { mutate: setHasPersistence }] =
-		createResource(isPersisted)
+	const [hasPersistence] = createResource(isPersisted)
 
 	// createEffect(async () => {
 	// 	if (isOpfs() && !hasPersistence()) {
@@ -24,8 +25,6 @@ export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 	// })
 
 	createEffect(async () => {
-		if (!props.db) return
-
 		try {
 			const pingResult = await api.ping('Hello from Main!')
 			setReply(pingResult)
@@ -36,17 +35,13 @@ export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 
 		try {
 			await api.clientReady
-			const migrationsResult = await props.db
+			const migrationsResult = await (await db)
 				.select()
 				.from(schema.migrations)
 				.all()
-			const [usersList, postsList] = await props.db.batch([
-				props.db.select().from(schema.users),
-				props.db.select().from(schema.posts)
-			])
+			const postsList = await (await db).select().from(schema.posts).all()
 
 			setMigrations(migrationsResult)
-			setUsers(usersList)
 			setPosts(postsList)
 		} catch (err: any) {
 			console.error('Main: error querying tables:', err)
@@ -59,7 +54,12 @@ export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 	return (
 		<div class="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-6">
 			<h1 class="text-3xl font-bold mb-4">SQLite Demo (via Comlink Worker)</h1>
-
+			<button
+				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-md text-base leading-relaxed mb-6"
+				onClick={async () => await api.downloadLocalDB(api)}
+			>
+				Download DB
+			</button>
 			<p class="mb-1">
 				<strong>Worker ping reply:</strong> {reply()}
 			</p>
@@ -110,11 +110,11 @@ export const Data = (props: { db: SqliteRemoteDatabase<typeof schema> }) => {
 
 					<section class="mb-6">
 						<h2 class="text-2xl font-semibold mb-2">Users</h2>
-						{users().length === 0 ? (
+						{users.length === 0 ? (
 							<p class="text-gray-500">No users found.</p>
 						) : (
 							<ul class="list-disc pl-5">
-								<For each={users()}>
+								<For each={users}>
 									{user => (
 										<li class="mb-1">
 											<span class="font-medium">ID {user.id}:</span> {user.name}{' '}

@@ -36,6 +36,7 @@ export async function runMigrations(c: Client): Promise<void> {
 		if (rows.length) continue
 
 		const stmts = batch.sql.map(sql => ({ sql, args: [] }))
+		if (!stmts.length) continue
 		await c.batch(stmts, 'deferred')
 		await c.execute(`INSERT INTO migrations(name) VALUES (?);`, [batch.id])
 	}

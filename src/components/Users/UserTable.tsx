@@ -1,52 +1,188 @@
+import { eq } from 'drizzle-orm'
 import { createSignal, For, type Component } from 'solid-js'
+import { useDb } from '../../context/DbProvider'
 import type { User } from '../../sqlite/schema'
+import * as schema from '../../sqlite/schema'
+
 export const UsersTable: Component<{
 	users: User[]
 	loading: boolean
 	onDelete: (id: number) => void
-	onUpdateName: (id: number, newName: string) => void
-	onUpdateEmail: (id: number, newEmail: string) => void
-	onRowClick: (user: User) => void
+	setSuccess: (msg: string | null) => void
+	setError: (msg: string | null) => void
+	setLoading: (loading: boolean) => void
+	error: string | null
+	success: string | null
 }> = props => {
-	const [editingNameId, setEditingNameId] = createSignal<number | null>(null)
-	const [editingName, setEditingName] = createSignal('')
-	const [editingEmailId, setEditingEmailId] = createSignal<number | null>(null)
-	const [editingEmail, setEditingEmail] = createSignal('')
+	const { db } = useDb()
 
-	const commitName = (id: number) => {
-		const newName = editingName().trim()
-		setEditingNameId(null)
-		if (newName) props.onUpdateName(id, newName)
-	}
+	const [editingNameIds, setEditingNameIds] = createSignal<Set<number>>(
+		new Set()
+	)
 
-	const commitEmail = (id: number) => {
-		const newEmail = editingEmail().trim()
-		if (!newEmail.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) {
-			throw new Error('Invalid email format')
+	const [editingEmailIds, setEditingEmailIds] = createSignal<Set<number>>(
+		new Set()
+	)
+
+	const [editedUsers, setEditedUsers] = createSignal<
+		Record<number, { name?: string; email?: string }>
+	>({})
+	const updateName = async (id: number, newName: string) => {
+		if (!newName.trim()) return
+		props.setLoading(true)
+		props.setError(null)
+		props.setSuccess(null)
+		try {
+			await (await db)
+				.update(schema.users)
+				.set({ name: newName.trim() })
+				.where(eq(schema.users.id, id))
+			props.setSuccess('Name updated.')
+		} catch (err: any) {
+			console.error('updateName failed', err)
+			props.setError(err.message || 'Unknown error')
+		} finally {
+			props.setLoading(false)
 		}
-		setEditingEmailId(null)
-		if (newEmail) props.onUpdateEmail(id, newEmail)
 	}
 
-	const handleRowClick = (user: User, e: MouseEvent) => {
-		// Don't trigger row click if clicking on interactive elements
-		const target = e.target as HTMLElement
-		if (
-			target.tagName === 'INPUT' ||
-			target.tagName === 'BUTTON' ||
-			target.tagName === 'SPAN'
-		) {
-			return
+	const updateEmail = async (id: number, newEmail: string) => {
+		if (!newEmail.trim()) return
+		props.setLoading(true)
+		props.setError(null)
+		props.setSuccess(null)
+		try {
+			await (await db)
+				.update(schema.users)
+				.set({ email: newEmail.trim() })
+				.where(eq(schema.users.id, id))
+			props.setSuccess('Email updated.')
+		} catch (err: any) {
+			console.error('updateEmail failed', err)
+			props.setError(err.message || 'Unknown error')
+		} finally {
+			props.setLoading(false)
 		}
-		props.onRowClick(user)
 	}
 
-	const handleEditClick = (e: MouseEvent) => {
-		e.stopPropagation() // Prevent row click when editing
+	const startEditingName = (id: number) => {
+		setEditingNameIds(prev => {
+			const copy = new Set(prev)
+			copy.add(id)
+			return copy
+		})
+	}
+	const stopEditingName = (id: number) => {
+		setEditingNameIds(prev => {
+			const copy = new Set(prev)
+			copy.delete(id)
+			return copy
+		})
+	}
+
+	const startEditingEmail = (id: number) => {
+		setEditingEmailIds(prev => {
+			const copy = new Set(prev)
+			copy.add(id)
+			return copy
+		})
+	}
+	const stopEditingEmail = (id: number) => {
+		setEditingEmailIds(prev => {
+			const copy = new Set(prev)
+			copy.delete(id)
+			return copy
+		})
+	}
+
+	const onNameInput = (id: number, value: string) => {
+		const originalName = props.users.find(u => u.id === id)?.name ?? ''
+		const trimmed = value
+		setEditedUsers(prev => {
+			const copy = { ...prev }
+			if (trimmed !== originalName) {
+				const entry = copy[id] || {}
+				entry.name = trimmed
+				copy[id] = entry
+			} else {
+				if (copy[id]?.name !== undefined) {
+					const { email } = copy[id]
+					if (email !== undefined) {
+						copy[id] = { email }
+					} else {
+						delete copy[id]
+					}
+				}
+			}
+			return copy
+		})
+	}
+
+	const onEmailInput = (id: number, value: string) => {
+		const originalEmail = props.users.find(u => u.id === id)?.email ?? ''
+		const trimmed = value
+		setEditedUsers(prev => {
+			const copy = { ...prev }
+			if (trimmed !== originalEmail) {
+				const entry = copy[id] || {}
+				entry.email = trimmed
+				copy[id] = entry
+			} else {
+				if (copy[id]?.email !== undefined) {
+					const { name } = copy[id]
+					if (name !== undefined) {
+						copy[id] = { name }
+					} else {
+						delete copy[id]
+					}
+				}
+			}
+			return copy
+		})
+	}
+
+	const saveAll = () => {
+		const batch = editedUsers()
+		for (const idStr in batch) {
+			const id = Number(idStr)
+			const change = batch[id]
+
+			if (change.name !== undefined) {
+				const newName = change.name.trim()
+				const orig = props.users.find(u => u.id === id)?.name ?? ''
+				if (newName && newName !== orig) {
+					updateName(id, newName)
+				}
+			}
+
+			if (change.email !== undefined) {
+				const newEmail = change.email.trim()
+				const orig = props.users.find(u => u.id === id)?.email ?? ''
+				if (
+					newEmail &&
+					newEmail !== orig &&
+					/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail)
+				) {
+					updateEmail(id, newEmail)
+				}
+			}
+		}
+
+		setEditedUsers({})
+		setEditingNameIds(new Set<number>())
+		setEditingEmailIds(new Set<number>())
+	}
+
+	const cancelAll = () => {
+		setEditedUsers({})
+		setEditingNameIds(new Set<number>())
+		setEditingEmailIds(new Set<number>())
 	}
 
 	return (
 		<>
+			{props.error && <p class="text-red-500 mb-2">Error: {props.error}</p>}
+			{props.success && <p class="text-green-600 mb-2">{props.success}</p>}
 			<h3 class="text-xl font-semibold mb-3">All Users</h3>
 			<div class="overflow-x-auto">
 				<table class="min-w-full table-auto border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
@@ -74,135 +210,140 @@ export const UsersTable: Component<{
 					</thead>
 					<tbody class="bg-white divide-y divide-gray-200">
 						<For each={props.users}>
-							{user => (
-								<tr
-									class="hover:bg-gray-50 cursor-pointer transition-colors"
-									onClick={e => handleRowClick(user, e)}
-								>
-									{/* Avatar */}
-									<td class="px-6 py-4 whitespace-nowrap">
-										<div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-											{user.picture ? (
-												<img
-													src={user.picture || '/placeholder.svg'}
-													alt="Avatar"
-													class="w-full h-full object-cover"
+							{user => {
+								const isNameEditing = () => editingNameIds().has(user.id)
+								const isEmailEditing = () => editingEmailIds().has(user.id)
+								const pending = () => editedUsers()[user.id] || {}
+								const displayedName = () => pending().name ?? user.name
+								const displayedEmail = () => pending().email ?? user.email
+
+								return (
+									<tr class="hover:bg-gray-50 transition-colors">
+										{/* Avatar */}
+										<td class="px-6 py-4 whitespace-nowrap">
+											<div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+												{user.picture ? (
+													<img
+														src={user.picture}
+														alt="Avatar"
+														class="w-full h-full object-cover"
+													/>
+												) : (
+													<span class="text-sm font-medium text-gray-600">
+														{user.name[0]}
+													</span>
+												)}
+											</div>
+										</td>
+
+										{/* ID */}
+										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+											{user.id}
+										</td>
+
+										{/* Name */}
+										<td class="px-6 py-4 whitespace-nowrap">
+											{isNameEditing() ? (
+												<input
+													class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+													type="text"
+													value={displayedName()}
+													onInput={e =>
+														onNameInput(user.id, e.currentTarget.value)
+													}
+													onBlur={() => stopEditingName(user.id)}
+													autofocus
 												/>
 											) : (
-												<span class="text-sm font-medium text-gray-600">
-													{user.name[0]}
-												</span>
-											)}
-										</div>
-									</td>
-
-									{/* ID */}
-									<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-										{user.id}
-									</td>
-
-									{/* Name */}
-									<td class="px-6 py-4 whitespace-nowrap">
-										{editingNameId() === user.id ? (
-											<input
-												class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-												value={editingName()}
-												onInput={e => setEditingName(e.currentTarget.value)}
-												onBlur={() => commitName(user.id)}
-												onClick={handleEditClick}
-												autofocus
-											/>
-										) : (
-											<div class="flex flex-col">
 												<span
 													class="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
-													onDblClick={e => {
-														e.stopPropagation()
-														setEditingNameId(user.id)
-														setEditingName(user.name)
-													}}
+													onDblClick={() => startEditingName(user.id)}
 												>
-													{user.name}
+													{displayedName()}
 												</span>
-												{user.bio && (
-													<span class="text-xs text-gray-500 truncate max-w-xs">
-														{user.bio}
-													</span>
-												)}
-											</div>
-										)}
-									</td>
+											)}
+										</td>
 
-									{/* Email */}
-									<td class="px-6 py-4 whitespace-nowrap">
-										{editingEmailId() === user.id ? (
-											<input
-												class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-												value={editingEmail()}
-												onInput={e => setEditingEmail(e.currentTarget.value)}
-												onBlur={() => commitEmail(user.id)}
-												onClick={handleEditClick}
-												type="email"
-												autofocus
-											/>
-										) : (
-											<div class="flex flex-col">
+										{/* Email */}
+										<td class="px-6 py-4 whitespace-nowrap">
+											{isEmailEditing() ? (
+												<input
+													class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+													type="email"
+													value={displayedEmail()}
+													onInput={e =>
+														onEmailInput(user.id, e.currentTarget.value)
+													}
+													onBlur={() => stopEditingEmail(user.id)}
+													autofocus
+												/>
+											) : (
 												<span
 													class="text-sm text-gray-900 cursor-pointer hover:text-blue-600"
-													onDblClick={e => {
-														e.stopPropagation()
-														setEditingEmailId(user.id)
-														setEditingEmail(user.email)
-													}}
+													onDblClick={() => startEditingEmail(user.id)}
 												>
-													{user.email}
+													{displayedEmail()}
 												</span>
-												{user.location && (
-													<span class="text-xs text-gray-500">
-														{user.location}
-													</span>
-												)}
-											</div>
-										)}
-									</td>
+											)}
+										</td>
 
-									{/* Status */}
-									<td class="px-6 py-4 whitespace-nowrap">
-										<span
-											class={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-												user.isActive
-													? 'bg-green-100 text-green-800'
-													: 'bg-red-100 text-red-800'
-											}`}
-										>
-											{user.isActive ? 'Active' : 'Inactive'}
-										</span>
-									</td>
+										{/* Status */}
+										<td class="px-6 py-4 whitespace-nowrap">
+											<span
+												class={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+													user.isActive
+														? 'bg-green-100 text-green-800'
+														: 'bg-red-100 text-red-800'
+												}`}
+											>
+												{user.isActive ? 'Active' : 'Inactive'}
+											</span>
+										</td>
 
-									{/* Actions */}
-									<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-										<button
-											class="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 transition-colors"
-											onClick={e => {
-												e.stopPropagation()
-												props.onDelete(user.id)
-											}}
-											disabled={props.loading}
-										>
-											Delete
-										</button>
-									</td>
-								</tr>
-							)}
+										{/* Actions */}
+										<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+											<button
+												class="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 transition-colors"
+												onClick={() => props.onDelete(user.id)}
+												disabled={props.loading}
+											>
+												Delete
+											</button>
+										</td>
+									</tr>
+								)
+							}}
 						</For>
 					</tbody>
 				</table>
 			</div>
 
+			{/* Footer: Save All / Cancel All */}
+			<div class="mt-4 flex items-center space-x-4">
+				<button
+					class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+					onClick={saveAll}
+					disabled={props.loading || Object.keys(editedUsers()).length === 0}
+				>
+					Save All
+				</button>
+				<button
+					class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors"
+					onClick={cancelAll}
+					disabled={Object.keys(editedUsers()).length === 0}
+				>
+					Cancel All
+				</button>
+				<p class="text-sm text-gray-600">
+					You have {Object.keys(editedUsers()).length} pending change
+					{Object.keys(editedUsers()).length !== 1 ? 's' : ''}.
+				</p>
+			</div>
+
 			<div class="mt-4 text-sm text-gray-600">
 				<p>
-					💡 <strong>Tip:</strong> Click on a row to view user profile and
-					posts. Double-click name or email to edit inline.
+					💡 <strong>Tip:</strong> Double‐click any name or email to start
+					editing. Once you’ve made changes, click “Save All” to batch‐commit.
 				</p>
 			</div>
 		</>
