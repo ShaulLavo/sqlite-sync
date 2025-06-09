@@ -3,26 +3,27 @@ import { createSignal, For, onCleanup, onMount } from 'solid-js'
 import { useDb } from '../context/DbProvider'
 import { useCells } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
+import { shuffleArray } from '../utils/array'
 
 export function GameOfLife() {
 	const cells = useCells()
-	const { db } = useDb()
+	const { db, api } = useDb()
 	const [running, setRunning] = createSignal(false)
+	let timeoutId: ReturnType<typeof setTimeout>
 
-	let timer: ReturnType<typeof setInterval>
 	const sorted = () =>
 		cells.toSorted((a, b) => (a.y! === b.y! ? a.x! - b.x! : a.y! - b.y!))
 
 	async function step() {
 		const database = await db
-
 		const current = await database.select().from(schema.cells).all()
 
 		const aliveSet = new Set(
 			current.filter(c => c.alive).map(c => `${c.x},${c.y}`)
 		)
+
 		const neighborCounts = new Map<string, number>()
-		aliveSet.forEach(key => {
+		for (const key of aliveSet) {
 			const [x, y] = key.split(',').map(Number)
 			for (let dx = -1; dx <= 1; dx++) {
 				for (let dy = -1; dy <= 1; dy++) {
@@ -32,50 +33,56 @@ export function GameOfLife() {
 					}
 				}
 			}
-		})
+		}
+		let shouldShuffle = false
+		if (shouldShuffle) shuffleArray(current)
 
-		const updates: Promise<any>[] = []
+		const queries: any = []
 		for (const { x, y, alive } of current) {
 			const key = `${x},${y}`
 			const n = neighborCounts.get(key) || 0
-			const nextAlive = alive ? n === 2 || n === 3 : n === 3
+			const nextAlive = (alive && n === 2) || n === 3
 			if (nextAlive !== alive) {
-				updates.push(
+				queries.push(
 					database
 						.update(schema.cells)
 						.set({ alive: nextAlive })
 						.where(and(eq(schema.cells.x, x!), eq(schema.cells.y, y!)))
-						.run()
 				)
 			}
 		}
 
-		for await (const updPromise of updates) {
-			await updPromise
-		}
+		await database.batch(queries)
+		timeoutId = setTimeout(runLoop, 0)
 	}
 
+	function runLoop() {
+		if (!running()) return
+		step().catch(err => {
+			console.error(err)
+		})
+	}
 	function toggleRun() {
 		if (!running()) {
-			timer = setInterval(step, 300)
+			setRunning(true)
+			runLoop()
 		} else {
-			window.clearInterval(timer)
+			setRunning(false)
+			clearTimeout(timeoutId)
 		}
-		setRunning(r => !r)
 	}
 
-	onCleanup(() => window.clearInterval(timer))
-	onMount(async () => {
-		const database = await db
-		// clear everything first
-		await database.update(schema.cells).set({ alive: false }).run()
+	onCleanup(() => clearTimeout(timeoutId))
 
-		// figure out grid bounds
+	onMount(async () => {
+		await api.clientReady
+		const database = await db
+
+		await database.update(schema.cells).set({ alive: false }).run()
 		const all = await database.select().from(schema.cells).all()
 		const maxX = Math.max(...all.map(c => c.x!))
 		const maxY = Math.max(...all.map(c => c.y!))
-
-		const promises: Promise<any>[] = []
+		const promises: any = []
 		for (let y = 0; y <= maxY; y += 4) {
 			for (let x = 0; x <= maxX; x += 4) {
 				for (let dx = 0; dx < 3; dx++) {
@@ -84,13 +91,15 @@ export function GameOfLife() {
 							.update(schema.cells)
 							.set({ alive: true })
 							.where(and(eq(schema.cells.x, x + dx), eq(schema.cells.y, y)))
-							.run()
 					)
 				}
 			}
 		}
-		await Promise.all(promises)
+		if (promises.length === 0) return
+
+		await database.batch(promises)
 	})
+
 	return (
 		<div>
 			<button type="button" onClick={toggleRun}>

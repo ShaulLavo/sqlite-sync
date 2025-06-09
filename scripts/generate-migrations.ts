@@ -67,20 +67,21 @@ function generateMigrationsData(): void {
 			(a: MigrationStatement, b: MigrationStatement) => a.version - b.version
 		)
 
-	const output = `export interface MigrationStatement {
-	version: number
-	id: string
-	sql: string[]
-}
+	const output = /* ts */ `
+	export interface MigrationStatement {
+		version: number
+		id: string
+		sql: string[]
+	}
 
-export const migrationStatements: MigrationStatement[] = ${JSON.stringify(
+	export const migrationStatements: MigrationStatement[] = ${JSON.stringify(
 		migrations,
 		null,
 		2
-	)}
+	)} 
 `
 
-	const outputPath = './src/consts/migrations-data.ts'
+	const outputPath = './src/consts/migrations.ts'
 	fs.writeFileSync(outputPath, output)
 
 	console.log(`✅ Generated ${outputPath}`)

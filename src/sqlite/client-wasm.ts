@@ -6,7 +6,6 @@ import type {
 
 import type {
 	Client,
-	Config,
 	InArgs,
 	InStatement,
 	InValue,
@@ -29,7 +28,12 @@ import {
 // 	type StatementListNode,
 // 	type StatementNode
 // } from 'sqlite-parser'
-import type { ExpandedConfig, PoolUtil, Sqlite3ClientType } from './types'
+import type {
+	Config,
+	ExpandedConfig,
+	PoolUtil,
+	Sqlite3ClientType
+} from './types'
 
 export * from '@libsql/core/api'
 export function createClient(
@@ -53,7 +57,7 @@ function createDb(
 			db = new sqlite3.oo1.OpfsDb(path, 'c')
 		}
 	} else {
-		db = new sqlite3.oo1.DB(path, 'c')
+		throw new Error('No OPFS waht we do now?')
 	}
 	return db
 }
@@ -393,7 +397,7 @@ function executeStmt(
 
 	try {
 		const sqlStmt = db.prepare(sql)
-
+		// console.log('sql statement columns:', sqlStmt.getColumnNames())
 		// TODO: sqlStmt.safeIntegers(true);
 
 		let returnsData = sqlStmt.columnCount > 0
@@ -419,7 +423,8 @@ function executeStmt(
 					break
 				}
 				const values: unknown[] = sqlStmt.get([])
-				rows.push(rowFromSql(values, columns, intMode))
+				const row = rowFromSql(values, columns, intMode)
+				rows.push(row)
 			}
 			rows.forEach(row => {
 				row.id

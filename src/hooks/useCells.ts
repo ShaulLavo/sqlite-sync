@@ -1,15 +1,30 @@
 import * as Comlink from 'comlink'
-import { onMount } from 'solid-js'
+import { batch, onMount } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
 import { cells as cellsSchema } from '../sqlite/schema'
-
+import { type ChangeLog } from '../sqlite/schema'
+import { makePersisted } from '@solid-primitives/storage'
 export type Cell = { x: number; y: number; alive: boolean }
 
-export function useCells(width = 50, height = 30) {
-	const { db, api } = useDb()
-	const [cells, setCells] = createStore<Cell[]>([])
+interface useCellProps {
+	width?: number
+	height?: number
+}
+export function useCells({ width = 50, height = 30 }: useCellProps = {}) {
+	const initial: Cell[] = []
+	for (let x = 0; x < width; x++) {
+		for (let y = 0; y < height; y++) {
+			// Create a simple repeating block pattern
+			const isAlive = y % 4 === 1 && x % 4 < 3
+			initial.push({ x, y, alive: isAlive })
+		}
+	}
+	const [cells, setCells] = makePersisted(createStore<Cell[]>(initial), {
+		name: 'game-of-life-cells'
+	})
 
+	const { db, api } = useDb()
 	onMount(async () => {
 		const database = await db
 
@@ -24,7 +39,7 @@ export function useCells(width = 50, height = 30) {
 					batch.push({ x, y, alive: false })
 				}
 			}
-			batch = batch.filter(c => c.x != null && c.y != null) // TODO: is this needed?
+
 			if (!batch.length) return
 			await database.insert(cellsSchema).values(batch).run()
 
@@ -34,34 +49,38 @@ export function useCells(width = 50, height = 30) {
 			setCells(existing)
 		}
 
-		api.subscribeToAllChangesInTable(
+		await api.subscribeToTable(
 			'cells',
-			Comlink.proxy((change: any) => {
-				const row: Cell = JSON.parse(change.row_json)
-				const pk: { x: number; y: number } = JSON.parse(change.pk_json)
+			Comlink.proxy((changes: ChangeLog[]) => {
+				batch(() => {
+					for (const change of changes) {
+						const row: Cell = JSON.parse(change.row_json)
+						const pk: { x: number; y: number } = JSON.parse(change.pk_json)
 
-				if (change.op_type === 'INSERT') {
-					setCells(
-						produce(arr => {
-							arr.push(row)
-						})
-					)
-				}
+						if (change.op_type === 'INSERT') {
+							setCells(
+								produce(arr => {
+									arr.push(row)
+								})
+							)
+						}
 
-				if (change.op_type === 'UPDATE') {
-					setCells(
-						produce(arr => {
-							const i = arr.findIndex(c => c.x === row.x && c.y === row.y)
-							if (i > -1) arr[i] = row
-						})
-					)
-				}
+						if (change.op_type === 'UPDATE') {
+							setCells(
+								produce(arr => {
+									const i = arr.findIndex(c => c.x === row.x && c.y === row.y)
+									if (i > -1) arr[i] = row
+								})
+							)
+						}
 
-				if (change.op_type === 'DELETE') {
-					setCells(
-						reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
-					)
-				}
+						if (change.op_type === 'DELETE') {
+							setCells(
+								reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
+							)
+						}
+					}
+				})
 			})
 		)
 	})

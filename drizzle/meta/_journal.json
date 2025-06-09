@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1748806107168,
-      "tag": "0000_parallel_silhouette",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1748848052725,
-      "tag": "0001_misty_thing",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1748850498902,
-      "tag": "0002_brave_deathbird",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1748978838688,
-      "tag": "0003_brainy_unus",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1748980721542,
-      "tag": "0004_eager_boomerang",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1749325069167,
-      "tag": "0005_handy_morph",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1749371184082,
-      "tag": "0006_condemned_selene",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1749371320091,
-      "tag": "0007_military_retro_girl",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1749371402715,
-      "tag": "0008_open_vindicator",
+      "when": 1749396093238,
+      "tag": "0000_bitter_wallflower",
       "breakpoints": true
     }
   ]

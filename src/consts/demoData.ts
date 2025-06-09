@@ -102,22 +102,20 @@ export function getRandomRobot(index: number): string {
 	return `/robots/${imageNumber}.png`
 }
 export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
-	await db.insert(users).values(
-		demoUsers.map(u => ({
-			name: u.name,
-			email: u.email,
-			picture: getRandomRobot(demoUsers.indexOf(u) + 1),
-			bio: u.bio,
-			location: u.location,
-			isActive: Math.random() < 0.5
-		}))
-	)
-
 	const insertedUsers = await db
-		.select({ id: users.id, email: users.email })
-		.from(users)
-		.where(eq(users.isActive, users.isActive))
-		.all()
+		.insert(users)
+		.values(
+			demoUsers.map(u => ({
+				name: u.name,
+				email: u.email,
+				picture: getRandomRobot(demoUsers.indexOf(u) + 1),
+				bio: u.bio,
+				location: u.location,
+				isActive: Math.random() < 0.5
+			}))
+		)
+		.onConflictDoNothing()
+		.returning({ id: users.id, email: users.email })
 
 	const emailToIdMap: Record<string, number> = {}
 	insertedUsers.forEach((row: { email: string | number; id: number }) => {

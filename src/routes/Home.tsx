@@ -5,18 +5,19 @@ import { ManageUsers } from '../components/Users/ManageUsers'
 import { useDb } from '../context/DbProvider'
 import * as schema from '../sqlite/schema'
 import { downloadDatabase } from '../utils/download'
-// import { api } from '../App'
+import { ChangeLogTable } from '../components/ChangeLog'
+import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 
 const Home: Component = () => {
 	const { api, db } = useDb()
 	onMount(async () => {
-		api.subscribeToAllChangesInTable(
+		api.subscribeToTable(
 			'changeLog',
 			Comlink.proxy(change => {
 				console.log('Change detected in chagelog table:', change)
 			})
 		)
-		api.subscribeToAllChangesInTable(
+		api.subscribeToTable(
 			'users',
 			Comlink.proxy(change => {
 				console.log('Change detected in users table:', change)
@@ -25,7 +26,7 @@ const Home: Component = () => {
 
 		// runBatchExample(db())
 		onCleanup(async () => {})
-		// api.subscribeToAllChangesInTable('users', onChange)
+		// api.subscribeToTable('users', onChange)
 	})
 
 	return (
@@ -49,7 +50,8 @@ const Home: Component = () => {
 				>
 					`` Clear ChangeLog
 				</button>
-				<GameOfLife />
+				{/* <GameOfLife /> */}
+				<GameOfLifeCanvas />
 				<ManageUsers />
 			</div>
 		</div>

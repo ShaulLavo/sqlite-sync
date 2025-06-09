@@ -37,16 +37,16 @@ export const posts = sqliteTable('posts', {
 export type Post = typeof posts.$inferSelect
 export type NewPost = typeof posts.$inferInsert
 
-export const usersRelations = relations(users, ({ many }) => ({
-	posts: many(posts)
-}))
+// export const usersRelations = relations(users, ({ many }) => ({
+// 	posts: many(posts)
+// }))
 
-export const postsRelations = relations(posts, ({ one }) => ({
-	author: one(users, {
-		fields: [posts.authorId],
-		references: [users.id]
-	})
-}))
+// export const postsRelations = relations(posts, ({ one }) => ({
+// 	author: one(users, {
+// 		fields: [posts.authorId],
+// 		references: [users.id]
+// 	})
+// }))
 
 export const migrations = sqliteTable('migrations', {
 	name: text('name').notNull().primaryKey(),

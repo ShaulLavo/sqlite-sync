@@ -9,6 +9,7 @@ import {
 import type { Api } from '../sqlite'
 import * as schema from '../sqlite/schema'
 import { getDrizzleDriver } from '../utils/drizzleDriver'
+// import { SharedService, sharedWorker } from '../workers/sharedService'
 
 const DbContext = createContext<{
 	db: Promise<SqliteRemoteDatabase<typeof schema>>
@@ -32,13 +33,14 @@ function getDrizzleInstance(api: Api) {
 }
 
 const DbProvider: ParentComponent = props => {
-	const worker = new SharedWorker(
-		new URL('../sqlite/index.ts', import.meta.url),
-		{
-			type: 'module'
-		}
-	)
-	const api = Comlink.wrap<Api>(worker.port)
+	// const myService = new SharedService<Api>(
+	// 	'myApi',
+	// 	() => sharedWorker.port
+	// )
+	const worker = new Worker(new URL('../sqlite/index.ts', import.meta.url), {
+		type: 'module'
+	})
+	const api = Comlink.wrap<Api>(worker)
 	const db = getDrizzleInstance(api)
 	onCleanup(() => {
 		api.disconnect()

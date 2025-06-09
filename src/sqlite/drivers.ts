@@ -42,7 +42,7 @@ export async function batchDriver(
 		sql,
 		args: params
 	}))
-
+	console.log('batching', queries)
 	const batchResults = await client.batch(stmts, 'deferred')
 	return batchResults.map((res, i) => {
 		const method = queries[i].method || 'all'
