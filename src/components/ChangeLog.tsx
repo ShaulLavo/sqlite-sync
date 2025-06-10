@@ -6,7 +6,7 @@ import * as schema from '../sqlite/schema'
 import { eq } from 'drizzle-orm'
 export const ChangeLogTable: Component = () => {
 	const { db } = useDb()
-	const [logs, { slideLeft, slideRight }] = useLiveChangeLog(15)
+	const [logs, { slideLeft, slideRight }, setLogs] = useLiveChangeLog(15)
 
 	const [visibleRawId, setVisibleRawId] = createSignal<number | null>(null)
 	const toggleRaw = (id: number) => {
@@ -21,11 +21,13 @@ export const ChangeLogTable: Component = () => {
 			<button
 				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-md text-base leading-relaxed mb-6"
 				onClick={async () => {
-					await (await db)
+					const database = await db
+					await database
 						.delete(schema.changeLog)
 						.where(eq(schema.changeLog.id, schema.changeLog.id))
-						.execute()
-					window.location.reload()
+						.run()
+					setLogs([])
+					// window.location.reload()
 				}}
 			>
 				Clear ChangeLog

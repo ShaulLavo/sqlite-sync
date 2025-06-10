@@ -547,5 +547,3 @@ Comlink.expose(portApi)
 // })
 
 export type Api = Comlink.RemoteObject<typeof api & { disconnect: () => void }>
-
-api.resetDatabase = resetDatabase

@@ -1,10 +1,12 @@
 import * as Comlink from 'comlink'
-import { batch, onMount } from 'solid-js'
+import { batch, createEffect, createSignal, onMount } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
 import { cells as cellsSchema } from '../sqlite/schema'
 import { type ChangeLog } from '../sqlite/schema'
 import { makePersisted } from '@solid-primitives/storage'
+import { captureStoreUpdates, trackDeep } from '@solid-primitives/deep'
+
 export type Cell = { x: number; y: number; alive: boolean }
 
 interface useCellProps {
@@ -20,10 +22,15 @@ export function useCells({ width = 50, height = 30 }: useCellProps = {}) {
 			initial.push({ x, y, alive: isAlive })
 		}
 	}
-	const [cells, setCells] = makePersisted(createStore<Cell[]>(initial), {
-		name: 'game-of-life-cells'
-	})
 
+	const [cells, setCells] = createStore<Cell[]>(initial)
+	const [lastChanges, setLastChanges] = createSignal<ChangeLog[]>([])
+	// const getDelta = captureStoreUpdates(cells)
+
+	// createEffect(() => {
+	// 	trackDeep(cells)
+	// 	console.log(JSON.stringify(getDelta()))
+	// })
 	const { db, api } = useDb()
 	onMount(async () => {
 		const database = await db
@@ -52,38 +59,34 @@ export function useCells({ width = 50, height = 30 }: useCellProps = {}) {
 		await api.subscribeToTable(
 			'cells',
 			Comlink.proxy((changes: ChangeLog[]) => {
-				batch(() => {
-					for (const change of changes) {
-						const row: Cell = JSON.parse(change.row_json)
-						const pk: { x: number; y: number } = JSON.parse(change.pk_json)
+				setLastChanges(changes)
+				for (const change of changes) {
+					const row: Cell = JSON.parse(change.row_json)
+					const pk: { x: number; y: number } = JSON.parse(change.pk_json)
 
-						if (change.op_type === 'INSERT') {
-							setCells(
-								produce(arr => {
-									arr.push(row)
-								})
-							)
-						}
-
-						if (change.op_type === 'UPDATE') {
-							setCells(
-								produce(arr => {
-									const i = arr.findIndex(c => c.x === row.x && c.y === row.y)
-									if (i > -1) arr[i] = row
-								})
-							)
-						}
-
-						if (change.op_type === 'DELETE') {
-							setCells(
-								reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
-							)
-						}
+					if (change.op_type === 'UPDATE') {
+						const i = cells.findIndex(c => c.x === row.x && c.y === row.y)
+						if (i === -1) return
+						setCells(i, row)
 					}
-				})
+
+					if (change.op_type === 'INSERT') {
+						setCells(
+							produce(arr => {
+								arr.push(row)
+							})
+						)
+					}
+
+					if (change.op_type === 'DELETE') {
+						setCells(
+							reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
+						)
+					}
+				}
 			})
 		)
 	})
 
-	return cells
+	return [cells, lastChanges] as const
 }

@@ -1,14 +1,14 @@
-import { and, eq } from 'drizzle-orm'
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { makePersisted } from '@solid-primitives/storage'
+import { and, eq, sql } from 'drizzle-orm'
+import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { useDb } from '../context/DbProvider'
-import { useCells, type Cell } from '../hooks/useCells'
+import { useCells } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
-import { makePersisted } from '@solid-primitives/storage'
 export function GameOfLifeCanvas() {
-	const gridSize = { width: 45, height: 39 }
+	const gridSize = { width: 45, height: 5 }
 
-	const cells = useCells({ ...gridSize })
+	const [cells, lastChanges] = useCells({ ...gridSize })
 	const { db } = useDb()
 	const [running, setRunning] = createSignal(false)
 	let timeoutId: ReturnType<typeof setTimeout>
@@ -61,6 +61,8 @@ export function GameOfLifeCanvas() {
 			}
 		}
 		await database.batch(updates)
+		// await Promise.all(updates.map((u: any) => u.run()))
+		// updates.forEach(async (u: any) => await u.run())
 		timeoutId = setTimeout(runLoop, 0)
 	}
 
@@ -82,12 +84,34 @@ export function GameOfLifeCanvas() {
 		}
 	}
 
-	function draw(ctx: CanvasRenderingContext2D) {
+	function handleClick(evt: MouseEvent) {
+		if (!canvasRef) return
+		const rect = canvasRef.getBoundingClientRect()
+		const x = Math.floor((evt.clientX - rect.left) / cellSize)
+		const y = Math.floor((evt.clientY - rect.top) / cellSize)
+		db.then(
+			async database =>
+				await database
+					.update(schema.cells)
+					.set({
+						alive: sql`NOT ${schema.cells.alive}`
+					})
+					.where(and(eq(schema.cells.x, x), eq(schema.cells.y, y)))
+					.run()
+		)
+	}
+
+	createEffect(() => {
+		if (!canvasRef) return
+		if (lastChanges().length) return
 		const w = gridWidth()
 		const h = gridHeight()
+		canvasRef.width = w * cellSize
+		canvasRef.height = h * cellSize
+		const ctx = canvasRef.getContext('2d')!
 		ctx.clearRect(0, 0, w * cellSize, h * cellSize)
 		cells.forEach(cell => {
-			ctx.fillStyle = cell.alive ? '#e53e3e' : '#48bb78'
+			ctx.fillStyle = cell.alive ? '#ffb3c1' : '#a8dadc'
 			ctx.fillRect(
 				cell.x! * cellSize,
 				cell.y! * cellSize,
@@ -95,32 +119,32 @@ export function GameOfLifeCanvas() {
 				cellSize - 1
 			)
 		})
-	}
-
-	function handleClick(evt: MouseEvent) {
-		if (!canvasRef) return
-		const rect = canvasRef.getBoundingClientRect()
-		const x = Math.floor((evt.clientX - rect.left) / cellSize)
-		const y = Math.floor((evt.clientY - rect.top) / cellSize)
-		db.then(database =>
-			database
-				.update(schema.cells)
-				.set({ alive: !cells.find(c => c.x === x && c.y === y)?.alive })
-				.where(and(eq(schema.cells.x, x), eq(schema.cells.y, y)))
-				.run()
-		)
-	}
-
-	// Resize and redraw whenever cells change
-	createEffect(() => {
-		if (!canvasRef) return
-		const w = gridWidth()
-		const h = gridHeight()
-		canvasRef.width = w * cellSize
-		canvasRef.height = h * cellSize
-		const ctx = canvasRef.getContext('2d')!
-		draw(ctx)
 	})
+
+	createEffect(
+		on(lastChanges, changes => {
+			if (!canvasRef) return
+
+			const ctx = canvasRef.getContext('2d')!
+
+			for (const change of changes) {
+				const { x, y, alive } = JSON.parse(change.row_json) as {
+					x: number
+					y: number
+					alive: 0 | 1
+				}
+
+				const px = x * cellSize
+				const py = y * cellSize
+
+				ctx.fillStyle = alive
+					? '#ffb3c1' // alive: pastel pink
+					: '#a8dadc' // dead: pastel teal
+
+				ctx.fillRect(px, py, cellSize - 1, cellSize - 1)
+			}
+		})
+	)
 
 	onMount(() => {
 		if (!canvasRef) return
@@ -140,7 +164,7 @@ export function GameOfLifeCanvas() {
 		const maxX = Math.max(...all.map(c => c.x!))
 		const maxY = Math.max(...all.map(c => c.y!))
 
-		const buffer = 1
+		const buffer = 2
 		const spacing = 4
 		const patternWidth = 3
 
@@ -170,9 +194,15 @@ export function GameOfLifeCanvas() {
 		}
 		setHasLoadedPattern(true)
 	})
-
+	async function clearGrid() {
+		const database = await db
+		await database.update(schema.cells).set({ alive: false }).run()
+	}
 	return (
 		<div>
+			<button type="button" onClick={clearGrid}>
+				Clear
+			</button>
 			<button type="button" onClick={toggleRun}>
 				{running() ? 'Stop' : 'Start'}
 			</button>

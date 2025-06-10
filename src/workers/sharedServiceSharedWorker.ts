@@ -6,6 +6,7 @@ globalThis.addEventListener('connect', event => {
 	workerPort.addEventListener(
 		'message',
 		event => {
+			if (typeof event.data.clientId !== 'string') return
 			mapClientIdToPort.set(event.data.clientId, workerPort)
 
 			// Remove the entry when the client goes away, which we detect when
@@ -18,7 +19,7 @@ globalThis.addEventListener('connect', event => {
 			// Subsequent messages will be forwarded.
 			workerPort.addEventListener('message', event => {
 				const port = mapClientIdToPort.get(event.data.clientId)
-				port.postMessage(event.data, event.ports)
+				if (port) port.postMessage(event.data, event.ports)
 			})
 		},
 		{ once: true }

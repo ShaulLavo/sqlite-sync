@@ -107,5 +107,5 @@ export const useLiveChangeLog = (windowSize = 12) => {
 		})
 	})
 
-	return [visibleWindow, { slideLeft, slideRight }] as const
+	return [visibleWindow, { slideLeft, slideRight }, setBuffer] as const
 }
