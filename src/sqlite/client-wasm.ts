@@ -40,7 +40,10 @@ export function createClient(
 	config: Config,
 	sqlite3: Sqlite3ClientType
 ): [Sqlite3Client, Database] {
-	return _createClient(expandConfig(config, true), sqlite3)
+	return _createClient(
+		{ ...expandConfig(config, true), poolUtil: config.poolUtil },
+		sqlite3
+	)
 }
 
 /** @private */
@@ -50,12 +53,12 @@ function createDb(
 	poolUtil?: PoolUtil | undefined
 ): Database {
 	let db: Database
-	if ('opfs' in sqlite3) {
-		if (poolUtil) {
-			db = new poolUtil.OpfsSAHPoolDb(path)
-		} else {
-			db = new sqlite3.oo1.OpfsDb(path, 'c')
-		}
+	console.log({ poolUtil })
+
+	if (poolUtil) {
+		db = new poolUtil.OpfsSAHPoolDb(path)
+	} else if ('opfs' in sqlite3) {
+		db = new sqlite3.oo1.OpfsDb(path, 'c')
 	} else {
 		throw new Error('No OPFS waht we do now?')
 	}
