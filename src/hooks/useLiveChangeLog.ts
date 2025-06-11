@@ -1,7 +1,6 @@
 import * as Comlink from 'comlink'
 import { desc, lt } from 'drizzle-orm'
 import { createMemo, createSignal, onCleanup, onMount } from 'solid-js'
-import { createStore, produce } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
 import type { ChangeLog } from '../sqlite/schema'
 import { changeLog } from '../sqlite/schema'
@@ -9,7 +8,7 @@ import { changeLog } from '../sqlite/schema'
 export const useLiveChangeLog = (windowSize = 12) => {
 	const { api, db } = useDb()
 
-	const [buffer, setBuffer] = createStore<ChangeLog[]>([])
+	const [buffer, setBuffer] = createSignal<ChangeLog[]>([])
 
 	let highestSeenId = 0
 	let lowestSeenId = Infinity
@@ -17,7 +16,7 @@ export const useLiveChangeLog = (windowSize = 12) => {
 	const [windowStart, setWindowStart] = createSignal(0)
 	const visibleWindow = createMemo(() => {
 		const start = windowStart()
-		return buffer.slice(start, start + windowSize)
+		return buffer().slice(start, start + windowSize)
 	})
 
 	let unsubscribe: (() => void) | null = null
@@ -30,15 +29,10 @@ export const useLiveChangeLog = (windowSize = 12) => {
 		highestSeenId = Math.max(highestSeenId, rows[0].id)
 		lowestSeenId = Math.min(lowestSeenId, rows[rows.length - 1].id)
 
-		setBuffer(
-			produce((draft: ChangeLog[]) => {
-				draft.unshift(...rows)
-
-				if (windowStart() > 0) {
-					setWindowStart(prev => prev + rows.length)
-				}
-			})
-		)
+		setBuffer(rows.concat(buffer()))
+		if (windowStart() > 0) {
+			setWindowStart(prev => prev + rows.length)
+		}
 	}
 
 	const loadInitial = async () => {
@@ -70,11 +64,7 @@ export const useLiveChangeLog = (windowSize = 12) => {
 		olderRows.sort((a, b) => b.id - a.id)
 		lowestSeenId = Math.min(lowestSeenId, olderRows[olderRows.length - 1].id)
 
-		setBuffer(
-			produce((draft: ChangeLog[]) => {
-				draft.push(...olderRows)
-			})
-		)
+		setBuffer(buffer().concat(olderRows))
 	}
 
 	const slideLeft = () => {

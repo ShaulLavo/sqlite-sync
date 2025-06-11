@@ -1,10 +1,12 @@
-import { makePersisted } from '@solid-primitives/storage'
 import { and, eq, sql } from 'drizzle-orm'
 import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { useDb } from '../context/DbProvider'
-import { useCells } from '../hooks/useCells'
+import { generateDemoBoard, useCells } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
+import Button from './ui/Button'
+import { defaultAlive } from '../consts/defaultCells'
+import { debounce } from '@solid-primitives/scheduled'
 export function GameOfLifeCanvas() {
 	const gridSize = { width: 45, height: 5 }
 
@@ -14,9 +16,7 @@ export function GameOfLifeCanvas() {
 	let timeoutId: ReturnType<typeof setTimeout>
 	let canvasRef: HTMLCanvasElement | undefined
 	const cellSize = 20
-	const [hasLoadedPattern, setHasLoadedPattern] = makePersisted(
-		createSignal(false)
-	)
+
 	// Determine grid dimensions based on cell coordinates
 	const gridWidth = () =>
 		cells.length ? Math.max(...cells.map(c => c.x!)) + 1 : 0
@@ -102,8 +102,8 @@ export function GameOfLifeCanvas() {
 	}
 
 	createEffect(() => {
-		if (!canvasRef) return
 		if (lastChanges().length) return
+		if (!canvasRef) return
 		const w = gridWidth()
 		const h = gridHeight()
 		canvasRef.width = w * cellSize
@@ -121,6 +121,37 @@ export function GameOfLifeCanvas() {
 		})
 	})
 
+	async function clearGrid() {
+		const database = await db
+		await database.update(schema.cells).set({ alive: false }).run()
+	}
+	async function seedDemo() {
+		const database = await db
+		const pattern = generateDemoBoard(gridSize.width, gridSize.height)
+		const aliveMap = new Set(
+			pattern.filter(cell => cell.alive).map(cell => `${cell.x},${cell.y}`)
+		)
+		// Construct the full board with correct alive status
+		const updates = []
+		for (let y = 0; y < gridSize.height; y++) {
+			for (let x = 0; x < gridSize.width; x++) {
+				updates.push({
+					x,
+					y,
+					alive: aliveMap.has(`${x},${y}`)
+				})
+			}
+		}
+		const queries = updates.map(cell =>
+			database
+				.update(schema.cells)
+				.set({ alive: cell.alive })
+				.where(and(eq(schema.cells.x, cell.x), eq(schema.cells.y, cell.y)))
+		)
+		await database.batch(queries as any)
+	}
+	const resetDemo = debounce(seedDemo, 200)
+
 	createEffect(
 		on(lastChanges, changes => {
 			if (!canvasRef) return
@@ -133,14 +164,9 @@ export function GameOfLifeCanvas() {
 					y: number
 					alive: 0 | 1
 				}
-
 				const px = x * cellSize
 				const py = y * cellSize
-
-				ctx.fillStyle = alive
-					? '#ffb3c1' // alive: pastel pink
-					: '#a8dadc' // dead: pastel teal
-
+				ctx.fillStyle = alive ? '#ffb3c1' : '#a8dadc'
 				ctx.fillRect(px, py, cellSize - 1, cellSize - 1)
 			}
 		})
@@ -154,62 +180,13 @@ export function GameOfLifeCanvas() {
 	})
 
 	onCleanup(() => clearTimeout(timeoutId))
-	onMount(async () => {
-		if (hasLoadedPattern()) return
-		const database = await db
 
-		await database.update(schema.cells).set({ alive: false }).run()
-
-		const all = await database.select().from(schema.cells).all()
-		const maxX = Math.max(...all.map(c => c.x!))
-		const maxY = Math.max(...all.map(c => c.y!))
-
-		const buffer = 2
-		const spacing = 4
-		const patternWidth = 3
-
-		const updates: any = []
-
-		for (let y = buffer; y <= maxY - buffer; y += spacing) {
-			for (
-				let xStart = buffer;
-				xStart <= maxX - buffer - (patternWidth - 1);
-				xStart += spacing
-			) {
-				for (let dx = 0; dx < patternWidth; dx++) {
-					updates.push(
-						database
-							.update(schema.cells)
-							.set({ alive: true })
-							.where(
-								and(eq(schema.cells.x, xStart + dx), eq(schema.cells.y, y))
-							)
-					)
-				}
-			}
-		}
-
-		if (updates.length) {
-			await database.batch(updates)
-		}
-		setHasLoadedPattern(true)
-	})
-	async function clearGrid() {
-		const database = await db
-		await database.update(schema.cells).set({ alive: false }).run()
-	}
 	return (
 		<div>
-			<button type="button" onClick={clearGrid}>
-				Clear
-			</button>
-			<button type="button" onClick={toggleRun}>
-				{running() ? 'Stop' : 'Start'}
-			</button>
-			<canvas
-				ref={el => (canvasRef = el!)}
-				style={{ border: '1px solid #ccc', 'margin-top': '8px' }}
-			/>
+			<Button onClick={toggleRun}>{running() ? 'Stop' : 'Start'}</Button>
+			<Button onClick={clearGrid}>Clear</Button>
+			<Button onClick={resetDemo}>Reset Demo</Button>
+			<canvas ref={canvasRef} class="border border-gray-300 mt-2" />
 		</div>
 	)
 }

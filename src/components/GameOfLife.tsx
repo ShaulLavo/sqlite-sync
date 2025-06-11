@@ -4,6 +4,7 @@ import { useDb } from '../context/DbProvider'
 import { useCells } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
+import Button from './ui/Button'
 
 export function GameOfLife() {
 	const cells = useCells()
@@ -102,9 +103,9 @@ export function GameOfLife() {
 
 	return (
 		<div>
-			<button type="button" onClick={toggleRun}>
+			<Button type="button" onClick={toggleRun}>
 				{running() ? 'Stop' : 'Start'}
-			</button>
+			</Button>
 			<div
 				class="grid gap-px mt-2"
 				style={{

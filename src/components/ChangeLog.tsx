@@ -3,7 +3,8 @@ import type { ChangeLog } from '../sqlite/schema'
 import { useLiveChangeLog } from '../hooks/useLiveChangeLog'
 import { useDb } from '../context/DbProvider'
 import * as schema from '../sqlite/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
+import Button from './ui/Button'
 export const ChangeLogTable: Component = () => {
 	const { db } = useDb()
 	const [logs, { slideLeft, slideRight }, setLogs] = useLiveChangeLog(15)
@@ -18,20 +19,17 @@ export const ChangeLogTable: Component = () => {
 			<div class="mb-3">
 				<h3 class="text-xl font-semibold">Change Log</h3>
 			</div>
-			<button
-				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-md text-base leading-relaxed mb-6"
+			<Button
 				onClick={async () => {
 					const database = await db
-					await database
-						.delete(schema.changeLog)
-						.where(eq(schema.changeLog.id, schema.changeLog.id))
-						.run()
+					await database.delete(schema.changeLog).run()
+
 					setLogs([])
 					// window.location.reload()
 				}}
 			>
-				Clear ChangeLog
-			</button>
+				Clear Change Log
+			</Button>
 			<div class="overflow-y-auto h-full">
 				<table class="min-w-full table-auto border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
 					<thead class="bg-gray-50">
@@ -107,19 +105,9 @@ export const ChangeLogTable: Component = () => {
 			</div>
 
 			<div class="flex justify-between items-center mt-4">
-				<button
-					onClick={slideLeft}
-					class="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-				>
-					Prev
-				</button>
+				<Button onClick={slideLeft}>Prev</Button>
 
-				<button
-					onClick={slideRight}
-					class="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-				>
-					Next
-				</button>
+				<Button onClick={slideRight}>Next</Button>
 			</div>
 		</div>
 	)

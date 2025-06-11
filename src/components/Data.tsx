@@ -5,6 +5,7 @@ import * as schema from '../sqlite/schema'
 import { hasOPFS, isPersisted } from '../utils/storage'
 import { useUsers } from '../hooks/useLiveUsers'
 import { downloadDatabase } from '../utils/download'
+import Button from './ui/Button'
 
 export const Data = () => {
 	const { api, db } = useDb()
@@ -55,12 +56,12 @@ export const Data = () => {
 	return (
 		<div class="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-6">
 			<h1 class="text-3xl font-bold mb-4">SQLite Demo (via Comlink Worker)</h1>
-			<button
+			<Button
 				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-md text-base leading-relaxed mb-6"
 				onClick={async () => await downloadDatabase(api)}
 			>
 				Download DB
-			</button>
+			</Button>
 			<p class="mb-1">
 				<strong>Worker ping reply:</strong> {reply()}
 			</p>

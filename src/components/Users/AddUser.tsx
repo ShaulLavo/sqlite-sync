@@ -1,4 +1,5 @@
 import { createSignal, type Component } from 'solid-js'
+import Button from '../ui/Button'
 
 export const AddUserForm: Component<{
 	addUser: (args: {
@@ -98,13 +99,13 @@ export const AddUserForm: Component<{
 					disabled={props.loading}
 				/>
 			</div>
-			<button
+			<Button
 				type="submit"
 				class="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
 				disabled={props.loading}
 			>
 				{props.loading ? 'Adding…' : 'Add User'}
-			</button>
+			</Button>
 		</form>
 	)
 }
