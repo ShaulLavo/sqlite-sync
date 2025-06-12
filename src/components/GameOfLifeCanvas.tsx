@@ -1,3 +1,4 @@
+import { debounce } from '@solid-primitives/scheduled'
 import { and, eq, sql } from 'drizzle-orm'
 import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { useDb } from '../context/DbProvider'
@@ -5,8 +6,6 @@ import { generateDemoBoard, useCells } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
 import Button from './ui/Button'
-import { defaultAlive } from '../consts/defaultCells'
-import { debounce } from '@solid-primitives/scheduled'
 export function GameOfLifeCanvas() {
 	const gridSize = { width: 42, height: 100 }
 

@@ -1,7 +1,5 @@
 import { type Component } from 'solid-js'
-import { ChangeLogTable } from '../components/ChangeLog'
 import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
-import { ManageUsers } from '../components/Users/ManageUsers'
 
 const Home: Component = () => {
 	return (

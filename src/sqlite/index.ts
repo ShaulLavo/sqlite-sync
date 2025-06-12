@@ -12,7 +12,7 @@ import { runMigrations } from './migrations'
 import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
 import type { DriverQuery, Sqlite3Method } from './types'
-import { tap } from '../utils/funtions'
+import { tap } from '../utils/functions'
 
 const shouldLog = false
 const log = (...params: any[]) => shouldLog && console.log(...params)
