@@ -12,6 +12,7 @@ import { runMigrations } from './migrations'
 import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
 import type { DriverQuery, Sqlite3Method } from './types'
+import { tap } from '../utils/funtions'
 
 const shouldLog = false
 const log = (...params: any[]) => shouldLog && console.log(...params)
@@ -52,7 +53,6 @@ const initClient = async () => {
 
 		await generateAllTriggers(client)
 
-		// setupChangeNotificationSystem(sqlite3)
 		drizzleClient = drizzle(client, { schema })
 		resolve(true)
 	} catch (err) {
@@ -196,9 +196,7 @@ function dispatchChangeNotificationBatched(changes: schema.ChangeLog[]) {
 
 	for (const [tbl, tblChanges] of byTable) {
 		const tableMap = subscribers.get(tbl)
-		console.log(
-			`Worker: Dispatching batch change notification for ${tbl} (${tblChanges.length} items)`
-		)
+
 		if (!tableMap) continue
 
 		const allSet = tableMap.get('*')
@@ -243,7 +241,31 @@ const subscribeToChangeLog = async (callback: ChangeLogCallback) => {
 	})
 }
 
+const opCounts: Record<'INSERT' | 'UPDATE' | 'DELETE', number> = {
+	INSERT: 0,
+	UPDATE: 0,
+	DELETE: 0
+}
+let lastWindow = performance.now()
+
 const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
+	for (const { op_type } of changes) {
+		if (op_type in opCounts) {
+			opCounts[op_type as keyof typeof opCounts] += 1
+		}
+	}
+
+	const now = performance.now()
+	if (now - lastWindow >= 1000) {
+		console.log(
+			`[Throughput] ${opCounts.INSERT} inserts/s, ` +
+				`${opCounts.UPDATE} updates/s, ` +
+				`${opCounts.DELETE} deletes/s`
+		)
+		opCounts.INSERT = opCounts.UPDATE = opCounts.DELETE = 0
+		lastWindow = now
+	}
+
 	for (const cb of changeLogSubscribers) {
 		try {
 			cb(changes)
@@ -262,24 +284,19 @@ function flushChangeLogs() {
 	if (batch.length === 0) return
 
 	notifyChangeLogSubscribers(batch)
-	// dispatchChangeNotificationBatched(batch)
-	for (const rec of batch) {
-		dispatchChangeNotification(rec)
-	}
+	dispatchChangeNotificationBatched(batch)
 }
 
-const notifyBatched = <T>(r: T): T => {
+const notifyBuffered = tap(() => {
 	const { rows } = getNewChangeLogsSync(logCursor)
 	log(
 		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
 	)
-
 	if (rows.length > 0) {
 		changeLogQueue.push(...rows)
 
 		logCursor = Math.max(...rows.map(r => r.id), logCursor)
 
-		// schedule a flush 10 ms later
 		if (!flushTimer) {
 			flushTimer = setTimeout(() => {
 				flushChangeLogs()
@@ -287,23 +304,30 @@ const notifyBatched = <T>(r: T): T => {
 			}, FLUSH_DELAY_MS)
 		}
 	}
+})
 
-	return r
-}
-
-const notify = <T>(r: T) => {
+const notifyBatched = tap(() => {
 	const { rows } = getNewChangeLogsSync(logCursor)
 	log(
 		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
 	)
-	if (rows.length === 0) return r
+	if (rows.length === 0) return
+	notifyChangeLogSubscribers(rows)
+	logCursor = Math.max(...rows.map(r => r.id), logCursor)
+	dispatchChangeNotificationBatched(rows)
+})
+const notify = tap(() => {
+	const { rows } = getNewChangeLogsSync(logCursor)
+	log(
+		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
+	)
+	if (rows.length === 0) return
 	notifyChangeLogSubscribers(rows)
 	logCursor = Math.max(...rows.map(r => r.id), logCursor)
 	for (const rec of rows) {
 		dispatchChangeNotification(rec)
 	}
-	return r
-}
+})
 
 const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 	const changeLogBuffer: Array<{
@@ -370,13 +394,13 @@ const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
 		0 as WasmPointer
 	)
 }
-// const cb = debounce()
+
 const onClientReady = async () => {
+	log('Worker: Client is ready!')
 	const { rows } = await getNewChangeLogs(0)
 
 	logCursor = Math.max(...rows.map(r => r.id), logCursor)
-	notifyChangeLogSubscribers(rows)
-	log('Worker: Client is ready!')
+	notifyChangeLogSubscribers(rows.slice(-500))
 }
 
 const ping = (s: string) => {
@@ -406,12 +430,12 @@ const driver = async (
 	method: Sqlite3Method = 'all'
 ) => {
 	await clientReady
-	return driverFn(client, sql, params, method).then(notify)
+	return driverFn(client, sql, params, method).then(notifyBatched)
 }
 
 const batchDriver = async (queries: DriverQuery[]) => {
 	await clientReady
-	return batchDriverFn(client, queries).then(notify)
+	return batchDriverFn(client, queries).then(notifyBatched)
 }
 const selectMigrations = async () => {
 	await clientReady
@@ -528,22 +552,10 @@ api.debug = {
 	resetDatabase
 }
 
-// onmessage = (e => {
-// let ports: MessagePort[] = []
-// const port = e.ports[0]
-// ports.push(port)
-// log(ports.length, 'ports connected')
-// port.start()
-// const disconnect = () => {
-// 	ports = ports.filter(p => p !== port)
-// }
-
 const portApi = {
 	...api
-	// disconnect
 }
 initClient().then(onClientReady)
 Comlink.expose(portApi)
-// })
 
 export type Api = Comlink.RemoteObject<typeof api & { disconnect: () => void }>

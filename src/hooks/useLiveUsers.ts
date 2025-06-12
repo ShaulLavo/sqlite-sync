@@ -25,7 +25,6 @@ export const useUsers = () => {
 						setUsers(
 							produce(users => {
 								users.push(newUser)
-								return users
 							})
 						)
 					}
@@ -41,7 +40,6 @@ export const useUsers = () => {
 								if (idx !== -1) {
 									users[idx] = updatedUser
 								}
-								return users
 							})
 						)
 					}

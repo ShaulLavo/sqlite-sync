@@ -1,8 +1,8 @@
-import { trackStore } from '@solid-primitives/deep'
+import { captureStoreUpdates, trackStore } from '@solid-primitives/deep'
 import { debounce, leading } from '@solid-primitives/scheduled'
 import { makePersisted } from '@solid-primitives/storage'
 import * as Comlink from 'comlink'
-import { createEffect, createSignal, onMount } from 'solid-js'
+import { batch, createEffect, createSignal, onMount } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { defaultCells } from '../consts/defaultCells'
 import { useDb } from '../context/DbProvider'
@@ -66,26 +66,16 @@ interface useCellProps {
 	width?: number
 	height?: number
 }
-// ;[d, d, d, d, d, d, d]
-// ;[d, d, d, d, d, d, d]
-// ;[d, d, a, a, a, d, d]
-// ;[d, d, d, d, d, d, d]
-// ;[d, d, d, d, d, d, d]
+
 export function useCells(props: useCellProps = {}) {
 	const width = props.width ?? 50
 	const height = props.height ?? 30
-	const [lastCellsState, _setLastCellsState] = createSignal(
+
+	const [cells, setCells] = createStore<Cell[]>(
 		generateEmptyBoard(width, height)
 	)
-	const setLastCellState = leading(debounce, _setLastCellsState, 200)
-	const [cells, setCells] = createStore<Cell[]>(lastCellsState())
 	const [lastChanges, setLastChanges] = createSignal<ChangeLog[]>([])
-	// const getDelta = captureStoreUpdates(cells)
 
-	createEffect(() => {
-		trackStore(cells)
-		setLastCellState(cells)
-	})
 	const { db, api } = useDb()
 	onMount(async () => {
 		const database = await db
@@ -116,30 +106,6 @@ export function useCells(props: useCellProps = {}) {
 			'cells',
 			Comlink.proxy((changes: ChangeLog[]) => {
 				setLastChanges(changes)
-				for (const change of changes) {
-					const row: Cell = JSON.parse(change.row_json)
-					const pk: { x: number; y: number } = JSON.parse(change.pk_json)
-
-					if (change.op_type === 'UPDATE') {
-						const i = cells.findIndex(c => c.x === row.x && c.y === row.y)
-						if (i === -1) return
-						setCells(i, row)
-					}
-
-					if (change.op_type === 'INSERT') {
-						setCells(
-							produce(arr => {
-								arr.push(row)
-							})
-						)
-					}
-
-					if (change.op_type === 'DELETE') {
-						setCells(
-							reconcile(cells.filter(c => !(c.x === pk.x && c.y === pk.y)))
-						)
-					}
-				}
 			})
 		)
 	})

@@ -8,7 +8,7 @@ import Button from './ui/Button'
 import { defaultAlive } from '../consts/defaultCells'
 import { debounce } from '@solid-primitives/scheduled'
 export function GameOfLifeCanvas() {
-	const gridSize = { width: 45, height: 5 }
+	const gridSize = { width: 42, height: 100 }
 
 	const [cells, lastChanges] = useCells({ ...gridSize })
 	const { db } = useDb()
@@ -63,7 +63,7 @@ export function GameOfLifeCanvas() {
 		await database.batch(updates)
 		// await Promise.all(updates.map((u: any) => u.run()))
 		// updates.forEach(async (u: any) => await u.run())
-		timeoutId = setTimeout(runLoop, 0)
+		timeoutId = setTimeout(runLoop, 100)
 	}
 
 	function runLoop() {

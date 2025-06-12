@@ -35,7 +35,6 @@ export async function generateAllTriggers(client: Client) {
 
 		for (const opType of ['INSERT', 'UPDATE', 'DELETE'] as const) {
 			const timing = 'AFTER'
-			const when = opType === 'UPDATE' ? 'ON' : 'ON'
 			const ref = opType === 'DELETE' ? 'OLD' : 'NEW'
 			await client.execute(/*sql*/ `
         CREATE TRIGGER trg_${tblName}_${opType.toLowerCase()}

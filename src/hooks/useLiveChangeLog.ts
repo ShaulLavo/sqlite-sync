@@ -24,7 +24,7 @@ export const useLiveChangeLog = (windowSize = 12) => {
 	const pullNewRows = async () => {
 		const { rows } = await api.getNewChangeLogs(highestSeenId)
 		if (!rows.length) return
-
+		// console.log(rows)
 		rows.sort((a, b) => b.id - a.id)
 		highestSeenId = Math.max(highestSeenId, rows[0].id)
 		lowestSeenId = Math.min(lowestSeenId, rows[rows.length - 1].id)
@@ -74,12 +74,12 @@ export const useLiveChangeLog = (windowSize = 12) => {
 	const slideRight = async () => {
 		const desiredStart = windowStart() + windowSize
 
-		if (desiredStart + windowSize > buffer.length) {
+		if (desiredStart + windowSize > buffer().length) {
 			await fetchOlder(windowSize * 2)
 		}
 
 		setWindowStart(prev =>
-			Math.min(prev + windowSize, Math.max(0, buffer.length - windowSize))
+			Math.min(prev + windowSize, Math.max(0, buffer().length - windowSize))
 		)
 	}
 

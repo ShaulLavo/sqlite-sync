@@ -1,31 +1,9 @@
-import * as Comlink from 'comlink'
-import { onCleanup, onMount, type Component } from 'solid-js'
+import { type Component } from 'solid-js'
 import { ChangeLogTable } from '../components/ChangeLog'
 import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 import { ManageUsers } from '../components/Users/ManageUsers'
-import { useDb } from '../context/DbProvider'
 
 const Home: Component = () => {
-	const { api, db } = useDb()
-	onMount(async () => {
-		api.subscribeToTable(
-			'changeLog',
-			Comlink.proxy(change => {
-				console.log('Change detected in chagelog table:', change)
-			})
-		)
-		api.subscribeToTable(
-			'users',
-			Comlink.proxy(change => {
-				console.log('Change detected in users table:', change)
-			})
-		)
-
-		// runBatchExample(db())
-		onCleanup(async () => {})
-		// api.subscribeToTable('users', onChange)
-	})
-
 	return (
 		<div class="min-h-screen flex justify-center bg-gray-50 px-4">
 			<div class=" w-full bg-white p-8 ">
@@ -37,8 +15,8 @@ const Home: Component = () => {
 				</p>
 
 				<GameOfLifeCanvas />
-				<ChangeLogTable />
-				<ManageUsers />
+				{/* <ChangeLogTable /> */}
+				{/* <ManageUsers /> */}
 			</div>
 		</div>
 	)
