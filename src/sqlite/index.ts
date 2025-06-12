@@ -246,8 +246,12 @@ let lastWindow = performance.now()
 
 const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 	for (const { op_type } of changes) {
+		// every change-log record is itself an INSERT
+		opCounts.INSERT++
+
+		// now count the actual operation (INSERT/UPDATE/DELETE)
 		if (op_type in opCounts) {
-			opCounts[op_type as keyof typeof opCounts] += 1
+			opCounts[op_type as keyof typeof opCounts]++
 		}
 	}
 
@@ -258,6 +262,7 @@ const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 				`${opCounts.UPDATE} updates/s, ` +
 				`${opCounts.DELETE} deletes/s`
 		)
+		// reset for next window
 		opCounts.INSERT = opCounts.UPDATE = opCounts.DELETE = 0
 		lastWindow = now
 	}
