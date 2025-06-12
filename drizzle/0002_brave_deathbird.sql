@@ -1,1 +1,0 @@
-ALTER TABLE `change_log` ADD `row_json` text NOT NULL;

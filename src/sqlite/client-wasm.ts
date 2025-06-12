@@ -1,12 +1,12 @@
 import type {
 	Database,
+	PreparedStatement,
 	SqlValue,
 	Sqlite3Static
 } from '@libsql/libsql-wasm-experimental'
 
 import type {
 	Client,
-	Config,
 	InArgs,
 	InStatement,
 	InValue,
@@ -29,14 +29,22 @@ import {
 // 	type StatementListNode,
 // 	type StatementNode
 // } from 'sqlite-parser'
-import type { ExpandedConfig, PoolUtil, Sqlite3ClientType } from './types'
+import type {
+	Config,
+	ExpandedConfig,
+	PoolUtil,
+	Sqlite3ClientType
+} from './types'
 
 export * from '@libsql/core/api'
 export function createClient(
 	config: Config,
 	sqlite3: Sqlite3ClientType
-): [Client, Database] {
-	return _createClient(expandConfig(config, true), sqlite3)
+): [Sqlite3Client, Database] {
+	return _createClient(
+		{ ...expandConfig(config, true), poolUtil: config.poolUtil },
+		sqlite3
+	)
 }
 
 /** @private */
@@ -46,14 +54,14 @@ function createDb(
 	poolUtil?: PoolUtil | undefined
 ): Database {
 	let db: Database
-	if ('opfs' in sqlite3) {
-		if (poolUtil) {
-			db = new poolUtil.OpfsSAHPoolDb(path)
-		} else {
-			db = new sqlite3.oo1.OpfsDb(path, 'c')
-		}
+	// console.log({ poolUtil })
+	// console.log(sqlite3.oo1.OpfsDb)
+	if (poolUtil) {
+		db = new poolUtil.OpfsSAHPoolDb(path)
+	} else if ('opfs' in sqlite3) {
+		db = new sqlite3.oo1.OpfsDb(path, 'c')
 	} else {
-		db = new sqlite3.oo1.DB(path, 'c')
+		db = new sqlite3.oo1.DB()
 	}
 	return db
 }
@@ -61,7 +69,7 @@ function createDb(
 export function _createClient(
 	config: ExpandedConfig,
 	sqlite3: Sqlite3ClientType
-): [Client, Database] {
+): [Sqlite3Client, Database] {
 	if (config.scheme !== 'file') {
 		throw new LibsqlError(
 			`URL scheme ${JSON.stringify(
@@ -103,14 +111,13 @@ export function _createClient(
 	}
 
 	const path = config.path
-	const options = {
-		authToken: config.authToken,
-		syncUrl: config.syncUrl
-	}
+	// const options = {
+	// 	authToken: config.authToken,
+	// 	syncUrl: config.syncUrl
+	// }
 	const db = createDb(sqlite3, path, config.poolUtil)
 	executeStmt(db, 'SELECT 1 AS checkThatTheDatabaseCanBeOpened', config.intMode)
-	const res = executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
-	console.log('table_info(users)', res.rows[0])
+	executeStmt(db, 'PRAGMA table_info(users)', config.intMode)
 	const clinet = new Sqlite3Client(
 		sqlite3,
 		path,
@@ -156,6 +163,22 @@ export class Sqlite3Client implements Client {
 		stmtOrSql: InStatement | string,
 		args?: InArgs
 	): Promise<ResultSet> {
+		let stmt: InStatement
+
+		if (typeof stmtOrSql === 'string') {
+			stmt = {
+				sql: stmtOrSql,
+				args: args || []
+			}
+		} else {
+			stmt = stmtOrSql
+		}
+
+		this.#checkNotClosed()
+		return executeStmt(this.#getDb(), stmt, this.#intMode)
+	}
+
+	executeSync(stmtOrSql: InStatement | string, args?: InArgs): ResultSet {
 		let stmt: InStatement
 
 		if (typeof stmtOrSql === 'string') {
@@ -375,10 +398,16 @@ function executeStmt(
 	// if (tables.length > 0) {
 	// console.log('Affected tables:', tables)
 	// }
+	let sqlStmt: PreparedStatement
 
+	// 1) catch prepare-time errors and map them
 	try {
-		const sqlStmt = db.prepare(sql)
-
+		sqlStmt = db.prepare(sql)
+	} catch (e) {
+		throw mapSqliteError(e)
+	}
+	try {
+		// console.log('sql statement columns:', sqlStmt.getColumnNames())
 		// TODO: sqlStmt.safeIntegers(true);
 
 		let returnsData = sqlStmt.columnCount > 0
@@ -404,7 +433,8 @@ function executeStmt(
 					break
 				}
 				const values: unknown[] = sqlStmt.get([])
-				rows.push(rowFromSql(values, columns, intMode))
+				const row = rowFromSql(values, columns, intMode)
+				rows.push(row)
 			}
 			rows.forEach(row => {
 				row.id
@@ -426,6 +456,8 @@ function executeStmt(
 		}
 	} catch (e) {
 		throw mapSqliteError(e)
+	} finally {
+		sqlStmt.finalize()
 	}
 }
 

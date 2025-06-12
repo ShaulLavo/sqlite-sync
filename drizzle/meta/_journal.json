@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1748806107168,
-      "tag": "0000_parallel_silhouette",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1748848052725,
-      "tag": "0001_misty_thing",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1748850498902,
-      "tag": "0002_brave_deathbird",
+      "when": 1749396093238,
+      "tag": "0000_bitter_wallflower",
       "breakpoints": true
     }
   ]
