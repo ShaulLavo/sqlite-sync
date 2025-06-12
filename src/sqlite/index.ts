@@ -1,5 +1,6 @@
 import sqlite3InitModule, {
 	Database,
+	type SAHPoolUtil,
 	type Sqlite3Static,
 	type WasmPointer
 } from '@libsql/libsql-wasm-experimental'
@@ -13,19 +14,15 @@ import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
 import type { DriverQuery, Sqlite3Method } from './types'
 import { tap } from '../utils/functions'
-
 const shouldLog = false
 const log = (...params: any[]) => shouldLog && console.log(...params)
 
+let sqlite3: Sqlite3Static
 let db: Database
 let client: Sqlite3Client
 let drizzleClient: ReturnType<typeof drizzle>
-const {
-	promise: clientReady,
-	resolve,
-	reject
-} = Promise.withResolvers<boolean>()
-
+let { promise: clientReady, resolve, reject } = Promise.withResolvers<boolean>()
+let poolUtil: SAHPoolUtil
 export type ChangeCallback = (change: schema.ChangeLog) => void
 export type ChangeLogCallback = (change: schema.ChangeLog[]) => void
 type TableName = keyof typeof schema
@@ -36,18 +33,17 @@ const subscribers = new Map<
 >()
 const changeLogSubscribers = new Set<ChangeLogCallback>()
 let logCursor = 0
+const path = 'file:my.db'
 
 const initClient = async () => {
 	try {
-		const sqlite3 = await sqlite3InitModule()
-
-		const path = 'file:local.db'
-		const poolUtil = await sqlite3.installOpfsSAHPoolVfs({
+		sqlite3 = await sqlite3InitModule({})
+		poolUtil = await sqlite3.installOpfsSAHPoolVfs({
 			name: path,
 			initialCapacity: 10
 		})
-
 		;[client, db] = createClient({ url: path, poolUtil }, sqlite3)
+
 		await client.execute(`PRAGMA foreign_keys = ON;`)
 		await runMigrations(client)
 
@@ -430,11 +426,14 @@ const driver = async (
 	method: Sqlite3Method = 'all'
 ) => {
 	await clientReady
+	console.log(sqlite3.wasm.heap32u().byteLength)
 	return driverFn(client, sql, params, method).then(notifyBatched)
 }
 
 const batchDriver = async (queries: DriverQuery[]) => {
 	await clientReady
+	if (sqlite3.wasm.heap32u().byteLength === 2147487744) {
+	}
 	return batchDriverFn(client, queries).then(notifyBatched)
 }
 const selectMigrations = async () => {

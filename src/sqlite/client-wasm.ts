@@ -1,5 +1,6 @@
 import type {
 	Database,
+	PreparedStatement,
 	SqlValue,
 	Sqlite3Static
 } from '@libsql/libsql-wasm-experimental'
@@ -53,14 +54,14 @@ function createDb(
 	poolUtil?: PoolUtil | undefined
 ): Database {
 	let db: Database
-	console.log({ poolUtil })
-
+	// console.log({ poolUtil })
+	// console.log(sqlite3.oo1.OpfsDb)
 	if (poolUtil) {
 		db = new poolUtil.OpfsSAHPoolDb(path)
 	} else if ('opfs' in sqlite3) {
 		db = new sqlite3.oo1.OpfsDb(path, 'c')
 	} else {
-		throw new Error('No OPFS waht we do now?')
+		db = new sqlite3.oo1.DB()
 	}
 	return db
 }
@@ -397,9 +398,15 @@ function executeStmt(
 	// if (tables.length > 0) {
 	// console.log('Affected tables:', tables)
 	// }
+	let sqlStmt: PreparedStatement
 
+	// 1) catch prepare-time errors and map them
 	try {
-		const sqlStmt = db.prepare(sql)
+		sqlStmt = db.prepare(sql)
+	} catch (e) {
+		throw mapSqliteError(e)
+	}
+	try {
 		// console.log('sql statement columns:', sqlStmt.getColumnNames())
 		// TODO: sqlStmt.safeIntegers(true);
 
@@ -449,6 +456,8 @@ function executeStmt(
 		}
 	} catch (e) {
 		throw mapSqliteError(e)
+	} finally {
+		sqlStmt.finalize()
 	}
 }
 

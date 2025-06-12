@@ -1,5 +1,7 @@
 import { type Component } from 'solid-js'
 import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
+import { ChangeLogTable } from '../components/ChangeLog'
+import { ManageUsers } from '../components/Users/ManageUsers'
 
 const Home: Component = () => {
 	return (
@@ -13,8 +15,8 @@ const Home: Component = () => {
 				</p>
 
 				<GameOfLifeCanvas />
-				{/* <ChangeLogTable /> */}
-				{/* <ManageUsers /> */}
+				<ChangeLogTable />
+				<ManageUsers />
 			</div>
 		</div>
 	)

@@ -1,4 +1,3 @@
-import { debounce } from '@solid-primitives/scheduled'
 import { and, eq, sql } from 'drizzle-orm'
 import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { useDb } from '../context/DbProvider'
@@ -7,7 +6,7 @@ import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
 import Button from './ui/Button'
 export function GameOfLifeCanvas() {
-	const gridSize = { width: 42, height: 100 }
+	const gridSize = { width: 42, height: 50 }
 
 	const [cells, lastChanges] = useCells({ ...gridSize })
 	const { db } = useDb()
@@ -61,8 +60,11 @@ export function GameOfLifeCanvas() {
 		}
 		await database.batch(updates)
 		// await Promise.all(updates.map((u: any) => u.run()))
-		// updates.forEach(async (u: any) => await u.run())
-		timeoutId = setTimeout(runLoop, 100)
+		// for (const update of updates) {
+		// 	await update.run()
+		// }
+		// console.log('loop done?')
+		timeoutId = setTimeout(runLoop, 0)
 	}
 
 	function runLoop() {
@@ -100,26 +102,6 @@ export function GameOfLifeCanvas() {
 		)
 	}
 
-	createEffect(() => {
-		if (lastChanges().length) return
-		if (!canvasRef) return
-		const w = gridWidth()
-		const h = gridHeight()
-		canvasRef.width = w * cellSize
-		canvasRef.height = h * cellSize
-		const ctx = canvasRef.getContext('2d')!
-		ctx.clearRect(0, 0, w * cellSize, h * cellSize)
-		cells.forEach(cell => {
-			ctx.fillStyle = cell.alive ? '#ffb3c1' : '#a8dadc'
-			ctx.fillRect(
-				cell.x! * cellSize,
-				cell.y! * cellSize,
-				cellSize - 1,
-				cellSize - 1
-			)
-		})
-	})
-
 	async function clearGrid() {
 		const database = await db
 		await database.update(schema.cells).set({ alive: false }).run()
@@ -149,8 +131,26 @@ export function GameOfLifeCanvas() {
 		)
 		await database.batch(queries as any)
 	}
-	const resetDemo = debounce(seedDemo, 200)
 
+	createEffect(() => {
+		if (lastChanges().length) return
+		if (!canvasRef) return
+		const w = gridWidth()
+		const h = gridHeight()
+		canvasRef.width = w * cellSize
+		canvasRef.height = h * cellSize
+		const ctx = canvasRef.getContext('2d')!
+		ctx.clearRect(0, 0, w * cellSize, h * cellSize)
+		cells.forEach(cell => {
+			ctx.fillStyle = cell.alive ? '#ffb3c1' : '#a8dadc'
+			ctx.fillRect(
+				cell.x! * cellSize,
+				cell.y! * cellSize,
+				cellSize - 1,
+				cellSize - 1
+			)
+		})
+	})
 	createEffect(
 		on(lastChanges, changes => {
 			if (!canvasRef) return
@@ -184,7 +184,7 @@ export function GameOfLifeCanvas() {
 		<div>
 			<Button onClick={toggleRun}>{running() ? 'Stop' : 'Start'}</Button>
 			<Button onClick={clearGrid}>Clear</Button>
-			<Button onClick={resetDemo}>Reset Demo</Button>
+			<Button onClick={seedDemo}>Reset Demo</Button>
 			<canvas ref={canvasRef} class="border border-gray-300 mt-2" />
 		</div>
 	)
