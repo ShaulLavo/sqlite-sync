@@ -102,6 +102,8 @@ export function getRandomRobot(index: number): string {
 	return `/robots/${imageNumber}.png`
 }
 export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
+	const currentUsers = await db.select().from(users).all()
+	if (currentUsers.length) return
 	const insertedUsers = await db
 		.insert(users)
 		.values(
@@ -123,12 +125,12 @@ export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
 	})
 
 	const postsToInsert = demoPosts.map(p => {
-		const authorId = emailToIdMap[p.authorEmail]
-		if (!authorId) {
+		const author_id = emailToIdMap[p.authorEmail]
+		if (!author_id) {
 			throw new Error(`No user found for email ${p.authorEmail}`)
 		}
 		return {
-			authorId,
+			author_id,
 			title: p.title,
 			body: p.body
 		}

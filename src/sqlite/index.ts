@@ -1,8 +1,7 @@
 import sqlite3InitModule, {
 	Database,
 	type SAHPoolUtil,
-	type Sqlite3Static,
-	type WasmPointer
+	type Sqlite3Static
 } from '@libsql/libsql-wasm-experimental'
 import * as Comlink from 'comlink'
 import { desc, gt } from 'drizzle-orm'
@@ -13,7 +12,6 @@ import { runMigrations } from './migrations'
 import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
 import type { DriverQuery, Sqlite3Method } from './types'
-import { tap } from '../utils/functions'
 const shouldLog = false
 const log = (...params: any[]) => shouldLog && console.log(...params)
 
@@ -33,7 +31,7 @@ const subscribers = new Map<
 >()
 const changeLogSubscribers = new Set<ChangeLogCallback>()
 let logCursor = 0
-const path = 'file:my.db'
+const path = 'file:local.db'
 
 const initClient = async () => {
 	try {
@@ -42,8 +40,8 @@ const initClient = async () => {
 			name: path,
 			initialCapacity: 10
 		})
+		// await poolUtil.wipeFiles()
 		;[client, db] = createClient({ url: path, poolUtil }, sqlite3)
-
 		await client.execute(`PRAGMA foreign_keys = ON;`)
 		await runMigrations(client)
 
@@ -244,29 +242,29 @@ const opCounts: Record<'INSERT' | 'UPDATE' | 'DELETE', number> = {
 }
 let lastWindow = performance.now()
 
+const windowSize = 1000
+
 const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 	for (const { op_type } of changes) {
-		// every change-log record is itself an INSERT
 		opCounts.INSERT++
-
-		// now count the actual operation (INSERT/UPDATE/DELETE)
 		if (op_type in opCounts) {
 			opCounts[op_type as keyof typeof opCounts]++
 		}
 	}
-
-	const now = performance.now()
-	if (now - lastWindow >= 1000) {
-		console.log(
-			`[Throughput] ${opCounts.INSERT} inserts/s, ` +
-				`${opCounts.UPDATE} updates/s, ` +
-				`${opCounts.DELETE} deletes/s`
-		)
-		// reset for next window
-		opCounts.INSERT = opCounts.UPDATE = opCounts.DELETE = 0
-		lastWindow = now
+	if (shouldLog) {
+		const now = performance.now()
+		const elapsed = now - lastWindow
+		if (elapsed >= windowSize) {
+			const factor = windowSize / elapsed
+			log(
+				`[Throughput] ${(opCounts.INSERT * factor).toFixed(1)} inserts/s, ` +
+					`${(opCounts.UPDATE * factor).toFixed(1)} updates/s, ` +
+					`${(opCounts.DELETE * factor).toFixed(1)} deletes/s`
+			)
+			opCounts.INSERT = opCounts.UPDATE = opCounts.DELETE = 0
+			lastWindow = now
+		}
 	}
-
 	for (const cb of changeLogSubscribers) {
 		try {
 			cb(changes)
@@ -276,132 +274,42 @@ const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 	}
 }
 
-const changeLogQueue: schema.ChangeLog[] = []
-let flushTimer: ReturnType<typeof setTimeout> | null = null
-const FLUSH_DELAY_MS = 10
-
-function flushChangeLogs() {
-	const batch = changeLogQueue.splice(0, changeLogQueue.length)
-	if (batch.length === 0) return
-
-	notifyChangeLogSubscribers(batch)
-	dispatchChangeNotificationBatched(batch)
-}
-
-const notifyBuffered = tap(() => {
+const notifyBatched = () => {
 	const { rows } = getNewChangeLogsSync(logCursor)
-	log(
-		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-	)
-	if (rows.length > 0) {
-		changeLogQueue.push(...rows)
-
-		logCursor = Math.max(...rows.map(r => r.id), logCursor)
-
-		if (!flushTimer) {
-			flushTimer = setTimeout(() => {
-				flushChangeLogs()
-				flushTimer = null
-			}, FLUSH_DELAY_MS)
-		}
-	}
-})
-
-const notifyBatched = tap(() => {
-	const { rows } = getNewChangeLogsSync(logCursor)
-	log(
-		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-	)
 	if (rows.length === 0) return
+	// log(
+	// 	`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
+	// )
+
+	logCursor = rows[0].id
 	notifyChangeLogSubscribers(rows)
-	logCursor = Math.max(...rows.map(r => r.id), logCursor)
 	dispatchChangeNotificationBatched(rows)
-})
-const notify = tap(() => {
+}
+const notify = () => {
 	const { rows } = getNewChangeLogsSync(logCursor)
+	if (rows.length === 0) return
 	log(
 		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
 	)
-	if (rows.length === 0) return
 	notifyChangeLogSubscribers(rows)
-	logCursor = Math.max(...rows.map(r => r.id), logCursor)
+	logCursor = rows[0].id
 	for (const rec of rows) {
 		dispatchChangeNotification(rec)
 	}
-})
-
-const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
-	const changeLogBuffer: Array<{
-		operation: 'INSERT' | 'UPDATE' | 'DELETE'
-		dbName: string
-		tableName: string
-		rowid: string
-	}> = []
-
-	const OpNames: Record<number, 'DELETE' | 'INSERT' | 'UPDATE'> = {
-		9: 'DELETE',
-		18: 'INSERT',
-		23: 'UPDATE'
-	}
-
-	sqlite3.capi.sqlite3_update_hook(
-		db.pointer! as WasmPointer,
-		(
-			_userCtx: number,
-			op: 9 | 18 | 23,
-			dbName: string,
-			tableName: string,
-			rowid: BigInt
-		) => {
-			changeLogBuffer.push({
-				operation: OpNames[op],
-				dbName,
-				tableName,
-				rowid: rowid.toString()
-			})
-		},
-		0 as WasmPointer
-	)
-
-	sqlite3.capi.sqlite3_commit_hook(
-		db.pointer! as WasmPointer,
-		(_cbArg: WasmPointer) => {
-			if (changeLogBuffer.length === 0) {
-				log('No changes in transaction buffer')
-			} else {
-				for (const rec of changeLogBuffer) {
-					log(
-						`→ ${rec.operation} on ${rec.dbName}.${
-							rec.tableName
-						} (rowid=${rec.rowid.toString()})`
-					)
-				}
-
-				const { rows } = getNewChangeLogsSync(logCursor)
-				log(
-					`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-				)
-				if (rows.length === 0) return 0
-				notifyChangeLogSubscribers(rows)
-				logCursor = Math.max(...rows.map(r => r.id), logCursor)
-				for (const rec of rows) {
-					dispatchChangeNotification(rec)
-				}
-			}
-
-			changeLogBuffer.length = 0
-			return 0
-		},
-		0 as WasmPointer
-	)
 }
 
 const onClientReady = async () => {
 	log('Worker: Client is ready!')
-	const { rows } = await getNewChangeLogs(0)
 
-	logCursor = Math.max(...rows.map(r => r.id), logCursor)
-	notifyChangeLogSubscribers(rows.slice(-500))
+	const [row] = await drizzleClient
+		.select({ id: schema.changeLog.id })
+		.from(schema.changeLog)
+		.orderBy(desc(schema.changeLog.id))
+		.limit(1)
+
+	logCursor = row ? row.id - 1000 : 0
+	const { rows } = await getNewChangeLogs(logCursor)
+	notifyChangeLogSubscribers(rows)
 }
 
 const ping = (s: string) => {
@@ -431,15 +339,13 @@ const driver = async (
 	method: Sqlite3Method = 'all'
 ) => {
 	await clientReady
-	console.log(sqlite3.wasm.heap32u().byteLength)
-	return driverFn(client, sql, params, method).then(notifyBatched)
+	return driverFn(client, sql, params, method).finally(notifyBatched)
 }
 
 const batchDriver = async (queries: DriverQuery[]) => {
 	await clientReady
-	if (sqlite3.wasm.heap32u().byteLength === 2147487744) {
-	}
-	return batchDriverFn(client, queries).then(notifyBatched)
+	const res = await batchDriverFn(client, queries).finally(notifyBatched)
+	return res
 }
 const selectMigrations = async () => {
 	await clientReady
@@ -457,11 +363,6 @@ const getNewChangeLogsSync = (lastSeenLogId: number) => {
 	)
 
 	const rows = result.rows as any as schema.ChangeLog[]
-	if (rows.length > 0) {
-		log(
-			`Worker: getNewChangeLogsSync: Found ${rows.length} new change logs since last seen ID ${lastSeenLogId}`
-		)
-	}
 
 	return { rows }
 }
@@ -498,15 +399,9 @@ const getNewChangeLogs = async (from: number) => {
 }
 const downloadLocalDB = async () => {
 	await clientReady
-	const root = await navigator.storage.getDirectory()
-	const fileName = db.dbFilename()
-	log(`Preparing database download: (${fileName})`)
-	const fileHandle = await root.getFileHandle('local.db')
+	const file = await poolUtil.exportFile('/local.db')
 
-	const file = await fileHandle.getFile()
-	const arrayBuffer = await file.arrayBuffer()
-
-	return new Blob([arrayBuffer], { type: 'application/x-sqlite3' })
+	return new Blob([file], { type: 'application/x-sqlite3' })
 }
 
 const resetDatabase = async () => {
@@ -555,11 +450,48 @@ api.downloadLocalDB = downloadLocalDB
 api.debug = {
 	resetDatabase
 }
+function logFileSystemSupport() {
+	const checks = [
+		{
+			name: 'FileSystemHandle',
+			supported: typeof globalThis.FileSystemHandle !== 'undefined'
+		},
+		{
+			name: 'FileSystemDirectoryHandle',
+			supported: typeof globalThis.FileSystemDirectoryHandle !== 'undefined'
+		},
+		{
+			name: 'FileSystemFileHandle',
+			supported: typeof globalThis.FileSystemFileHandle !== 'undefined'
+		},
+		{
+			name: 'createSyncAccessHandle',
+			supported:
+				globalThis.FileSystemFileHandle &&
+				typeof (
+					//@ts-expect-error
+					globalThis.FileSystemFileHandle.prototype.createSyncAccessHandle
+				) === 'function'
+		},
+		{
+			name: 'navigator.storage.getDirectory',
+			supported:
+				navigator.storage &&
+				typeof navigator.storage.getDirectory === 'function'
+		}
+	]
+
+	checks.forEach(({ name, supported }) => {
+		console.log(`${name}: ${supported ? '✅ supported' : '❌ not supported'}`)
+	})
+}
+
+logFileSystemSupport()
 
 const portApi = {
 	...api
 }
-initClient().then(onClientReady)
 Comlink.expose(portApi)
+initClient().then(onClientReady)
 
 export type Api = Comlink.RemoteObject<typeof api & { disconnect: () => void }>

@@ -1,4 +1,5 @@
 import { createVirtualList } from '@solid-primitives/virtual'
+import { sql } from 'drizzle-orm'
 import { createSignal, For, onMount, Show, type Component } from 'solid-js'
 import { useDb } from '../context/DbProvider'
 import { useChangelog } from '../hooks/useChangelog'
@@ -31,7 +32,7 @@ export const ChangeLogTable: Component = () => {
 
 	const containerHeight = () => getVL().containerHeight
 	const viewerTop = () => getVL().viewerTop
-	const visibleItems = () => getVL().visibleItems
+	const visibleItems = () => getVL().visibleItems.filter(i => !!i.id)
 
 	const topPad = () => viewerTop()
 	const bottomPad = () =>
@@ -39,28 +40,37 @@ export const ChangeLogTable: Component = () => {
 			0,
 			containerHeight() - topPad() - visibleItems().length * ROW_HEIGHT
 		)
+	const { format } = new Intl.NumberFormat()
 
 	return (
-		<div
-			style={{ height: rootHeight() + 'px' }}
-			class="p-4 flex flex-col gap-4"
-		>
+		<div style={{ height: rootHeight() + 'px' }} class="flex flex-col gap-4">
 			<div class="flex items-center gap-4">
-				<h3 class="text-xl font-semibold">Change&nbsp;Log</h3>
 				<Button
 					onClick={async () => {
 						const database = await db
 						await database.delete(schema.changeLog).run()
+						await database.run(
+							sql`DELETE FROM sqlite_sequence WHERE name = ${schema.changeLog}`
+						)
 						logs.splice(0, logs.length)
 					}}
+					variant="outline"
+					class="text-sm"
 				>
 					Clear Change Log
 				</Button>
+				<div class="text-sm text-gray-500 dark:text-gray-400">
+					{logs.length} entries
+				</div>
 			</div>
 
-			<div ref={root} class="flex-1 overflow-y-auto" onScroll={onScroll}>
-				<table class="min-w-full table-auto border-collapse bg-white shadow-sm rounded-lg">
-					<thead class="bg-gray-50 sticky top-0 z-10">
+			<div
+				ref={root}
+				class="flex-1 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300"
+				onScroll={onScroll}
+			>
+				<table class="min-w-full table-auto border-collapse">
+					<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10 transition-colors duration-300">
 						<tr>
 							<th class={th}>ID</th>
 							<th class={th}>Table</th>
@@ -70,7 +80,7 @@ export const ChangeLogTable: Component = () => {
 						</tr>
 					</thead>
 
-					<tbody class="divide-y divide-gray-200">
+					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
 						{/* top spacer row */}
 						<tr style={{ height: `${topPad()}px` }}>
 							<td colSpan="5" />
@@ -81,7 +91,10 @@ export const ChangeLogTable: Component = () => {
 							when={logs.length > 0}
 							fallback={
 								<tr>
-									<td colSpan="5" class="px-6 py-4 text-center text-gray-500">
+									<td
+										colSpan="5"
+										class="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
+									>
 										Loading or no entries.
 									</td>
 								</tr>
@@ -91,14 +104,22 @@ export const ChangeLogTable: Component = () => {
 								{log => (
 									<>
 										<tr
-											class="cursor-pointer hover:bg-gray-100"
+											class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150"
 											onClick={() => toggleExpanded(log.id)}
 										>
-											<td class={td}>{log.id}</td>
+											<td class={td}>{format(log.id)}</td>
 											<td class={td}>{log.tbl_name}</td>
-											<td class={td}>{log.op_type}</td>
 											<td class={td}>
-												<code class="bg-gray-100 rounded px-1 py-0.5">
+												<span
+													class={`px-2 py-1 rounded-full text-xs font-medium ${getOperationClass(
+														log.op_type
+													)}`}
+												>
+													{log.op_type}
+												</span>
+											</td>
+											<td class={td}>
+												<code class="bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5 text-purple-600 dark:text-purple-400 text-xs">
 													{log.pk_json}
 												</code>
 											</td>
@@ -106,9 +127,9 @@ export const ChangeLogTable: Component = () => {
 										</tr>
 
 										<Show when={expandedId() === log.id}>
-											<tr class="bg-gray-50">
+											<tr class="bg-gray-50 dark:bg-gray-800/30">
 												<td colSpan="5" class="px-6 py-4">
-													<pre class="text-xs overflow-auto max-h-64">
+													<pre class="text-xs overflow-auto max-h-64 bg-white dark:bg-gray-900 dark:text-purple-400 p-3 rounded-md border border-gray-200 dark:border-gray-700">
 														{JSON.stringify(JSON.parse(log.row_json), null, 2)}
 													</pre>
 												</td>
@@ -130,6 +151,21 @@ export const ChangeLogTable: Component = () => {
 	)
 }
 
+// Helper function to get operation-specific styling
+function getOperationClass(operation: string) {
+	switch (operation) {
+		case 'INSERT':
+			return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+		case 'UPDATE':
+			return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+		case 'DELETE':
+			return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+		default:
+			return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
+	}
+}
+
 const th =
-	'border-b px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-const td = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900'
+	'border-b border-gray-200 dark:border-gray-700 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider transition-colors duration-300'
+const td =
+	'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200 transition-colors duration-300'

@@ -1,19 +1,25 @@
 import type { Client } from '@libsql/client'
+import {
+	type SQLiteTable,
+	type TableConfig,
+	getTableConfig
+} from 'drizzle-orm/sqlite-core'
 import * as schema from '../sqlite/schema'
-import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core'
 
-function isSqliteTable(t: any): t is SQLiteTable<any> {
+function isSqliteTable(t: any): t is SQLiteTable<TableConfig> {
 	return t && typeof t.getSQL === 'function' && Boolean(t.getSQL())
 }
 
 export async function generateAllTriggers(client: Client) {
-	const tables = Object.values(schema).filter(isSqliteTable)
+	const tables = Object.values(schema)
 
 	for (const tbl of tables) {
+		if (!isSqliteTable(tbl)) return
 		const { name: tblName, columns, primaryKeys } = getTableConfig(tbl)
 		if (tblName === 'change_log') continue
 
 		const allCols = columns.map(c => c.name)
+		console.log('allCols', allCols)
 		const dynamicPkCols =
 			primaryKeys?.flatMap(pk => pk.columns?.map(c => c.name) ?? []) ?? []
 		const pkCols = [
@@ -63,19 +69,19 @@ export async function generateAllTriggers(client: Client) {
     `)
 
 		// global truncate
-		await client.execute(/*sql*/ `
-      CREATE TRIGGER IF NOT EXISTS change_log_auto_truncate
-      AFTER INSERT ON change_log
-      WHEN ( (SELECT COUNT(*) FROM change_log) > 1000 )
-      BEGIN
-        DELETE FROM change_log
-        WHERE id IN (
-          SELECT id
-            FROM change_log
-          ORDER BY id ASC
-          LIMIT (SELECT COUNT(*) - 1000 FROM change_log)
-        );
-      END;
-    `)
+		// 	await client.execute(/*sql*/ `
+		//   CREATE TRIGGER IF NOT EXISTS change_log_auto_truncate
+		//   AFTER INSERT ON change_log
+		//   WHEN ( (SELECT COUNT(*) FROM change_log) > 1000 )
+		//   BEGIN
+		//     DELETE FROM change_log
+		//     WHERE id IN (
+		//       SELECT id
+		//         FROM change_log
+		//       ORDER BY id ASC
+		//       LIMIT (SELECT COUNT(*) - 1000 FROM change_log)
+		//     );
+		//   END;
+		// `)
 	}
 }

@@ -54,8 +54,6 @@ function createDb(
 	poolUtil?: PoolUtil | undefined
 ): Database {
 	let db: Database
-	// console.log({ poolUtil })
-	// console.log(sqlite3.oo1.OpfsDb)
 	if (poolUtil) {
 		db = new poolUtil.OpfsSAHPoolDb(path)
 	} else if ('opfs' in sqlite3) {
@@ -407,7 +405,6 @@ function executeStmt(
 		throw mapSqliteError(e)
 	}
 	try {
-		// console.log('sql statement columns:', sqlStmt.getColumnNames())
 		// TODO: sqlStmt.safeIntegers(true);
 
 		let returnsData = sqlStmt.columnCount > 0

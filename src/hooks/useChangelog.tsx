@@ -1,24 +1,42 @@
 import * as Comlink from 'comlink'
-import { onCleanup, onMount } from 'solid-js'
+import { batch, onCleanup, onMount } from 'solid-js'
 import { createMutable } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
-import type { ChangeLog } from '../sqlite/schema'
+import { changeLog, type ChangeLog } from '../sqlite/schema'
+import { desc } from 'drizzle-orm'
 
 export const useChangelog = () => {
-	const { api } = useDb()
+	const { api, db } = useDb()
 	const logs = createMutable<ChangeLog[]>([])
+	const N = 1000
+
+	let unsubscribe: (() => void) | undefined
 
 	onMount(async () => {
-		const unsubscribe = await api.subscribeToChangeLog(
+		const database = await db
+
+		const recent = await database
+			.select()
+			.from(changeLog)
+			.orderBy(desc(changeLog.id))
+			.limit(N)
+			.all()
+
+		logs.splice(0, logs.length, ...recent)
+
+		unsubscribe = await api.subscribeToChangeLog(
 			Comlink.proxy((incoming: ChangeLog[]) => {
-				logs.unshift(...incoming)
-				if (logs.length > 1000) {
-					logs.splice(200)
-				}
+				const toAdd = incoming.length > N ? incoming.slice(-N) : incoming
+				batch(() => {
+					logs.unshift(...toAdd.reverse())
+					if (logs.length > N) logs.splice(N)
+				})
 			})
 		)
+	})
 
-		onCleanup(unsubscribe)
+	onCleanup(() => {
+		unsubscribe?.()
 	})
 
 	return logs
