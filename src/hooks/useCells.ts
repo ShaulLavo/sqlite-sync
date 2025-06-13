@@ -1,10 +1,6 @@
-import { captureStoreUpdates, trackStore } from '@solid-primitives/deep'
-import { debounce, leading } from '@solid-primitives/scheduled'
-import { makePersisted } from '@solid-primitives/storage'
 import * as Comlink from 'comlink'
-import { batch, createEffect, createSignal, onMount } from 'solid-js'
-import { createStore, produce, reconcile } from 'solid-js/store'
-import { defaultCells } from '../consts/defaultCells'
+import { createSignal, onMount } from 'solid-js'
+import { createStore } from 'solid-js/store'
 import { useDb } from '../context/DbProvider'
 import { cells as cellsSchema, type ChangeLog } from '../sqlite/schema'
 
@@ -70,6 +66,7 @@ interface useCellProps {
 export function useCells(props: useCellProps = {}) {
 	const width = props.width ?? 50
 	const height = props.height ?? 30
+	const [loading, setLoading] = createSignal(true)
 
 	const [cells, setCells] = createStore<Cell[]>(
 		generateEmptyBoard(width, height)
@@ -100,15 +97,11 @@ export function useCells(props: useCellProps = {}) {
 		} else {
 			setCells(existing)
 		}
+		setLoading(false)
 	})
 	onMount(async () => {
-		await api.subscribeToTable(
-			'cells',
-			Comlink.proxy((changes: ChangeLog[]) => {
-				setLastChanges(changes)
-			})
-		)
+		await api.subscribeToTable('cells', Comlink.proxy(setLastChanges))
 	})
 
-	return [cells, lastChanges] as const
+	return [cells, lastChanges, loading] as const
 }

@@ -1,20 +1,36 @@
+'use client'
+
 import { and, eq, sql } from 'drizzle-orm'
-import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	on,
+	onCleanup,
+	onMount
+} from 'solid-js'
 import { useDb } from '../context/DbProvider'
-import { generateDemoBoard, useCells } from '../hooks/useCells'
+import { generateDemoBoard, useCells, type Cell } from '../hooks/useCells'
 import * as schema from '../sqlite/schema'
 import { shuffleArray } from '../utils/array'
 import Button from './ui/Button'
-export function GameOfLifeCanvas() {
-	const gridSize = { width: 42, height: 50 }
+import { isDarkMode } from '../routes/Home'
 
-	const [cells, lastChanges] = useCells({ ...gridSize })
+export function GameOfLifeCanvas() {
+	const gridSize = { width: 42, height: 5 }
+
+	const [cells, lastChanges, loading] = useCells({ ...gridSize })
 	const { db } = useDb()
 	const [running, setRunning] = createSignal(false)
 	let timeoutId: ReturnType<typeof setTimeout>
-	let canvasRef: HTMLCanvasElement | undefined
+	let canvasRef!: HTMLCanvasElement
 	const cellSize = 20
-
+	const aliveColor = createMemo(() =>
+		isDarkMode() ? 'rgb(219, 39, 119)' : 'rgb(236, 72, 153)'
+	)
+	const deadColor = createMemo(() =>
+		isDarkMode() ? 'rgb(30, 41, 59)' : 'rgb(243, 244, 246)'
+	)
 	// Determine grid dimensions based on cell coordinates
 	const gridWidth = () =>
 		cells.length ? Math.max(...cells.map(c => c.x!)) + 1 : 0
@@ -24,7 +40,6 @@ export function GameOfLifeCanvas() {
 	async function step() {
 		const database = await db
 		const current = await database.select().from(schema.cells).all()
-
 		const aliveSet = new Set(
 			current.filter(c => c.alive).map(c => `${c.x},${c.y}`)
 		)
@@ -41,7 +56,7 @@ export function GameOfLifeCanvas() {
 				}
 			}
 		})
-		let shouldShuffle = false
+		const shouldShuffle = false
 		if (shouldShuffle) shuffleArray(current)
 
 		const updates: any = []
@@ -59,16 +74,12 @@ export function GameOfLifeCanvas() {
 			}
 		}
 		await database.batch(updates)
-		// await Promise.all(updates.map((u: any) => u.run()))
-		// for (const update of updates) {
-		// 	await update.run()
-		// }
-		// console.log('loop done?')
-		timeoutId = setTimeout(runLoop, 0)
+		timeoutId = setTimeout(runLoop, 300)
 	}
 
 	function runLoop() {
 		if (!running()) return
+
 		step().catch(err => {
 			console.error(err)
 			setRunning(false)
@@ -123,50 +134,63 @@ export function GameOfLifeCanvas() {
 				})
 			}
 		}
-		const queries = updates.map(cell =>
-			database
-				.update(schema.cells)
-				.set({ alive: cell.alive })
-				.where(and(eq(schema.cells.x, cell.x), eq(schema.cells.y, cell.y)))
+		await database.batch(
+			updates.map(cell =>
+				database
+					.update(schema.cells)
+					.set({ alive: cell.alive })
+					.where(and(eq(schema.cells.x, cell.x), eq(schema.cells.y, cell.y)))
+			) as any
 		)
-		await database.batch(queries as any)
 	}
 
-	createEffect(() => {
-		if (lastChanges().length) return
-		if (!canvasRef) return
-		const w = gridWidth()
-		const h = gridHeight()
-		canvasRef.width = w * cellSize
-		canvasRef.height = h * cellSize
-		const ctx = canvasRef.getContext('2d')!
-		ctx.clearRect(0, 0, w * cellSize, h * cellSize)
-		cells.forEach(cell => {
-			ctx.fillStyle = cell.alive ? '#ffb3c1' : '#a8dadc'
-			ctx.fillRect(
-				cell.x! * cellSize,
-				cell.y! * cellSize,
-				cellSize - 1,
-				cellSize - 1
-			)
-		})
-	})
 	createEffect(
-		on(lastChanges, changes => {
+		on(isDarkMode, () => {
+			fullDraw(canvasRef.getContext('2d')!)
+		})
+	)
+
+	async function fullDraw(ctx: CanvasRenderingContext2D) {
+		const w = gridWidth(),
+			h = gridHeight()
+		canvasRef!.width = w * cellSize
+		canvasRef!.height = h * cellSize
+		ctx.clearRect(0, 0, w * cellSize, h * cellSize)
+		const database = await db
+		const cells = await database.select().from(schema.cells).all()
+		cells.forEach(({ x, y, alive }) => {
+			ctx.fillStyle = alive ? aliveColor() : deadColor()
+			ctx.fillRect(x! * cellSize, y! * cellSize, cellSize - 1, cellSize - 1)
+		})
+	}
+	let initialized = false
+
+	createEffect(
+		on(lastChanges, async changes => {
 			if (!canvasRef) return
-
 			const ctx = canvasRef.getContext('2d')!
+			const total = gridSize.width * gridSize.height
+			if (!initialized) {
+				await fullDraw(ctx)
+				initialized = true
+				return
+			}
 
+			// big batch? full redraw
+			if (changes.length > total / 2) {
+				await fullDraw(ctx)
+				return
+			}
+
+			// otherwise patch diffs
 			for (const change of changes) {
 				const { x, y, alive } = JSON.parse(change.row_json) as {
 					x: number
 					y: number
 					alive: 0 | 1
 				}
-				const px = x * cellSize
-				const py = y * cellSize
-				ctx.fillStyle = alive ? '#ffb3c1' : '#a8dadc'
-				ctx.fillRect(px, py, cellSize - 1, cellSize - 1)
+				ctx.fillStyle = alive ? aliveColor() : deadColor()
+				ctx.fillRect(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1)
 			}
 		})
 	)
@@ -181,11 +205,43 @@ export function GameOfLifeCanvas() {
 	onCleanup(() => clearTimeout(timeoutId))
 
 	return (
-		<div>
-			<Button onClick={toggleRun}>{running() ? 'Stop' : 'Start'}</Button>
-			<Button onClick={clearGrid}>Clear</Button>
-			<Button onClick={seedDemo}>Reset Demo</Button>
-			<canvas ref={canvasRef} class="border border-gray-300 mt-2" />
+		<div class="relative">
+			<div class="flex flex-wrap gap-3 mb-4">
+				<Button
+					onClick={toggleRun}
+					disabled={loading()}
+					class="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white"
+				>
+					{running() ? 'Stop Simulation' : 'Start Simulation'}
+				</Button>
+				<Button
+					onClick={clearGrid}
+					disabled={loading()}
+					class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white"
+				>
+					Clear Grid
+				</Button>
+				<Button
+					onClick={seedDemo}
+					disabled={loading()}
+					class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white"
+				>
+					Reset Demo
+				</Button>
+			</div>
+			{/* {loading() && (
+				<div class="flex justify-center items-center h-40">
+					<div class="animate-pulse text-purple-600 dark:text-purple-400 ">
+						Loading simulation...
+					</div>
+				</div>
+			)} */}
+			<div class="overflow-hidden rounded-lg shadow-lg">
+				<canvas
+					ref={canvasRef}
+					class="border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 rounded-lg transition-all duration-300"
+				/>
+			</div>
 		</div>
 	)
 }

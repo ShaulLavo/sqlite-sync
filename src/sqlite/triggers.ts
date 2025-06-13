@@ -63,19 +63,19 @@ export async function generateAllTriggers(client: Client) {
     `)
 
 		// global truncate
-		await client.execute(/*sql*/ `
-      CREATE TRIGGER IF NOT EXISTS change_log_auto_truncate
-      AFTER INSERT ON change_log
-      WHEN ( (SELECT COUNT(*) FROM change_log) > 1000 )
-      BEGIN
-        DELETE FROM change_log
-        WHERE id IN (
-          SELECT id
-            FROM change_log
-          ORDER BY id ASC
-          LIMIT (SELECT COUNT(*) - 1000 FROM change_log)
-        );
-      END;
-    `)
+		// 	await client.execute(/*sql*/ `
+		//   CREATE TRIGGER IF NOT EXISTS change_log_auto_truncate
+		//   AFTER INSERT ON change_log
+		//   WHEN ( (SELECT COUNT(*) FROM change_log) > 1000 )
+		//   BEGIN
+		//     DELETE FROM change_log
+		//     WHERE id IN (
+		//       SELECT id
+		//         FROM change_log
+		//       ORDER BY id ASC
+		//       LIMIT (SELECT COUNT(*) - 1000 FROM change_log)
+		//     );
+		//   END;
+		// `)
 	}
 }
