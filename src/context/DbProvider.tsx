@@ -22,7 +22,6 @@ function getDrizzleInstance(api: Api) {
 
 	api.clientReady
 		.then(async () => {
-			console.log('client READY')
 			const { driver, batchDriver } = getDrizzleDriver(api)
 			const d = drizzle<typeof schema>(driver, batchDriver)
 			resolve(d)

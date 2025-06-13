@@ -7,7 +7,7 @@ import { shuffleArray } from '../utils/array'
 import Button from './ui/Button'
 
 export function GameOfLife() {
-	const cells = useCells()
+	const [cells] = useCells()
 	const { db, api } = useDb()
 	const [running, setRunning] = createSignal(false)
 	let timeoutId: ReturnType<typeof setTimeout>

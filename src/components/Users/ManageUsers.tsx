@@ -6,6 +6,7 @@ import * as schema from '../../sqlite/schema'
 import { useUsers } from '../../hooks/useLiveUsers'
 import { AddUserForm } from './AddUser'
 import { UsersTable } from './UserTable'
+
 export const ManageUsers: Component = () => {
 	const { db } = useDb()
 
@@ -69,9 +70,9 @@ export const ManageUsers: Component = () => {
 	}
 
 	return (
-		<div class="w-full bg-white rounded-2xl shadow-lg p-6">
-			<div class="flex flex-row">
-				<div class="flex-2/3">
+		<div class="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 transition-colors duration-300">
+			<div class="flex flex-col md:flex-row gap-8">
+				<div class="flex-grow md:w-2/3">
 					<UsersTable
 						users={users}
 						loading={loading()}
@@ -84,8 +85,10 @@ export const ManageUsers: Component = () => {
 					/>
 				</div>
 
-				<div class="flex flex-col flex-1/3  ml-8 justify-center">
-					<h2 class="text-2xl font-semibold mb-4">Add New User</h2>
+				<div class="flex flex-col md:w-1/3">
+					<h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">
+						Add New User
+					</h2>
 
 					<AddUserForm addUser={addUser} loading={loading()} />
 				</div>

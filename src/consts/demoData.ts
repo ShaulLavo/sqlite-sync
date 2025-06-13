@@ -102,6 +102,8 @@ export function getRandomRobot(index: number): string {
 	return `/robots/${imageNumber}.png`
 }
 export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
+	const currentUsers = await db.select().from(users).all()
+	if (currentUsers.length) return
 	const insertedUsers = await db
 		.insert(users)
 		.values(

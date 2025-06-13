@@ -48,16 +48,16 @@ export const useUsers = () => {
 		)
 	})
 
-	let isFirstRender = true
-	createEffect(async () => {
-		if (isFirstRender) return (isFirstRender = false)
-		if (users.length === 0) {
-			const database = await db
-			await seedDemoData(database)
-			const initialUsers = await database.select().from(schema.users).all()
+	api.clientReady.then(() => {
+		createEffect(async () => {
+			if (users.length === 0) {
+				const database = await db
+				await seedDemoData(database)
+				const initialUsers = await database.select().from(schema.users).all()
 
-			setUsers(initialUsers)
-		}
+				setUsers(initialUsers)
+			}
+		})
 	})
 
 	return users

@@ -1,3 +1,5 @@
+'use client'
+
 import { createSignal, type Component } from 'solid-js'
 import Button from '../ui/Button'
 
@@ -44,7 +46,10 @@ export const AddUserForm: Component<{
 	return (
 		<form onSubmit={handleSubmit} class="space-y-4 mb-6">
 			<div>
-				<label for="name" class="block text-sm font-medium text-gray-700">
+				<label
+					for="name"
+					class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Name
 				</label>
 				<input
@@ -52,12 +57,15 @@ export const AddUserForm: Component<{
 					type="text"
 					value={name()}
 					onInput={e => setName((e.currentTarget as HTMLInputElement).value)}
-					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+					class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200"
 					disabled={props.loading}
 				/>
 			</div>
 			<div>
-				<label for="email" class="block text-sm font-medium text-gray-700">
+				<label
+					for="email"
+					class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Email
 				</label>
 				<input
@@ -65,12 +73,15 @@ export const AddUserForm: Component<{
 					type="email"
 					value={email()}
 					onInput={e => setEmail((e.currentTarget as HTMLInputElement).value)}
-					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+					class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200"
 					disabled={props.loading}
 				/>
 			</div>
 			<div>
-				<label for="bio" class="block text-sm font-medium text-gray-700">
+				<label
+					for="bio"
+					class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Bio
 				</label>
 				<input
@@ -78,13 +89,16 @@ export const AddUserForm: Component<{
 					type="text"
 					value={bio()}
 					onInput={e => setBio((e.currentTarget as HTMLInputElement).value)}
-					class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+					class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200"
 					placeholder="Optional"
 					disabled={props.loading}
 				/>
 			</div>
 			<div>
-				<label for="location" class="block text-sm font-medium text-gray-700">
+				<label
+					for="location"
+					class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+				>
 					Location
 				</label>
 				<input
@@ -94,16 +108,12 @@ export const AddUserForm: Component<{
 					onInput={e =>
 						setLocation((e.currentTarget as HTMLInputElement).value)
 					}
-					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+					class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200"
 					placeholder="Optional"
 					disabled={props.loading}
 				/>
 			</div>
-			<Button
-				type="submit"
-				class="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
-				disabled={props.loading}
-			>
+			<Button type="submit" class="w-full" disabled={props.loading}>
 				{props.loading ? 'Adding…' : 'Add User'}
 			</Button>
 		</form>
