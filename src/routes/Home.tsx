@@ -1,16 +1,16 @@
-'use client'
-
+import { makePersisted } from '@solid-primitives/storage'
 import {
 	type Component,
 	createEffect,
 	createSignal,
+	onMount,
 	type Signal
 } from 'solid-js'
-import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 import { ChangeLogTable } from '../components/ChangeLog'
+import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 import { ManageUsers } from '../components/Users/ManageUsers'
 import { MoonIcon, SunIcon } from '../components/icons/ThemeIcons'
-import { makePersisted } from '@solid-primitives/storage'
+import { useDb } from '../context/DbProvider'
 export const [isDarkMode, setIsDarkMode] = makePersisted(
 	createSignal(window.matchMedia('(prefers-color-scheme: dark)').matches)
 )
@@ -18,11 +18,26 @@ const Home: Component = () => {
 	createEffect(() => {
 		document.documentElement.classList.toggle('dark', isDarkMode())
 	})
-
+	const { api, db } = useDb()
 	const toggleDarkMode = () => {
 		setIsDarkMode(prev => !prev)
 	}
 
+	onMount(async () => {
+		// const database = await db
+		// await setupWebsocket(database)
+		// const sendToServer = async (incoming: ChangeLog[]) => {
+		// 	const res = await ky
+		// 		.post('http://localhost:3000/', {
+		// 			timeout: 10_000,
+		// 			json: incoming
+		// 		})
+		// 		.json()
+		// 	console.log(res)
+		// }
+		// const onChange = createBatchFlusher(sendToServer, 500)
+		// await api.subscribeToChangeLog(Comlink.proxy(onChange))
+	})
 	return (
 		<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
 			<div class="container mx-auto px-4 py-8">

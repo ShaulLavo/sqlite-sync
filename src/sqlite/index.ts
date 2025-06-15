@@ -1,8 +1,7 @@
 import sqlite3InitModule, {
 	Database,
 	type SAHPoolUtil,
-	type Sqlite3Static,
-	type WasmPointer
+	type Sqlite3Static
 } from '@libsql/libsql-wasm-experimental'
 import * as Comlink from 'comlink'
 import { desc, gt } from 'drizzle-orm'
@@ -33,6 +32,7 @@ const subscribers = new Map<
 const changeLogSubscribers = new Set<ChangeLogCallback>()
 let logCursor = 0
 const path = 'file:local.db'
+
 const initClient = async () => {
 	try {
 		sqlite3 = await sqlite3InitModule({})
@@ -40,8 +40,8 @@ const initClient = async () => {
 			name: path,
 			initialCapacity: 10
 		})
+		await poolUtil.wipeFiles()
 		;[client, db] = createClient({ url: path, poolUtil }, sqlite3)
-
 		await client.execute(`PRAGMA foreign_keys = ON;`)
 		await runMigrations(client)
 
@@ -242,7 +242,7 @@ const opCounts: Record<'INSERT' | 'UPDATE' | 'DELETE', number> = {
 }
 let lastWindow = performance.now()
 
-const windowSize = 1000 // ms
+const windowSize = 1000
 
 const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 	for (const { op_type } of changes) {
@@ -274,42 +274,12 @@ const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 	}
 }
 
-const changeLogQueue: schema.ChangeLog[] = []
-let flushTimer: ReturnType<typeof setTimeout> | null = null
-const FLUSH_DELAY_MS = 10
-
-function flushChangeLogs() {
-	const batch = changeLogQueue.splice(0, changeLogQueue.length)
-	if (batch.length === 0) return
-
-	notifyChangeLogSubscribers(batch)
-	dispatchChangeNotificationBatched(batch)
-}
-
-const notifyBuffered = () => {
+const notifyBatched = () => {
 	const { rows } = getNewChangeLogsSync(logCursor)
 	if (rows.length === 0) return
 	log(
 		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
 	)
-
-	changeLogQueue.push(...rows)
-	const lastLog = rows[rows.length]
-	logCursor = rows[0].id
-	if (!flushTimer) {
-		flushTimer = setTimeout(() => {
-			flushChangeLogs()
-			flushTimer = null
-		}, FLUSH_DELAY_MS)
-	}
-}
-
-const notifyBatched = () => {
-	const { rows } = getNewChangeLogsSync(logCursor)
-	if (rows.length === 0) return
-	// log(
-	// 	`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-	// )
 
 	logCursor = rows[0].id
 	notifyChangeLogSubscribers(rows)
@@ -328,81 +298,16 @@ const notify = () => {
 	}
 }
 
-const setupChangeNotificationSystem = (sqlite3: Sqlite3Static) => {
-	const changeLogBuffer: Array<{
-		operation: 'INSERT' | 'UPDATE' | 'DELETE'
-		dbName: string
-		tableName: string
-		rowid: string
-	}> = []
-
-	const OpNames: Record<number, 'DELETE' | 'INSERT' | 'UPDATE'> = {
-		9: 'DELETE',
-		18: 'INSERT',
-		23: 'UPDATE'
-	}
-
-	sqlite3.capi.sqlite3_update_hook(
-		db.pointer! as WasmPointer,
-		(
-			_userCtx: number,
-			op: 9 | 18 | 23,
-			dbName: string,
-			tableName: string,
-			rowid: BigInt
-		) => {
-			changeLogBuffer.push({
-				operation: OpNames[op],
-				dbName,
-				tableName,
-				rowid: rowid.toString()
-			})
-		},
-		0 as WasmPointer
-	)
-
-	sqlite3.capi.sqlite3_commit_hook(
-		db.pointer! as WasmPointer,
-		(_cbArg: WasmPointer) => {
-			if (changeLogBuffer.length === 0) {
-				log('No changes in transaction buffer')
-			} else {
-				for (const rec of changeLogBuffer) {
-					log(
-						`→ ${rec.operation} on ${rec.dbName}.${
-							rec.tableName
-						} (rowid=${rec.rowid.toString()})`
-					)
-				}
-
-				const { rows } = getNewChangeLogsSync(logCursor)
-				log(
-					`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-				)
-				if (rows.length === 0) return 0
-				notifyChangeLogSubscribers(rows)
-				logCursor = rows[0].id
-				for (const rec of rows) {
-					dispatchChangeNotification(rec)
-				}
-			}
-
-			changeLogBuffer.length = 0
-			return 0
-		},
-		0 as WasmPointer
-	)
-}
-
 const onClientReady = async () => {
 	log('Worker: Client is ready!')
-
+	const all = await drizzleClient
+		.select({ id: schema.changeLog.id })
+		.from(schema.changeLog)
 	const [row] = await drizzleClient
 		.select({ id: schema.changeLog.id })
 		.from(schema.changeLog)
 		.orderBy(desc(schema.changeLog.id))
 		.limit(1)
-
 	logCursor = row ? row.id - 1000 : 0
 	const { rows } = await getNewChangeLogs(logCursor)
 	notifyChangeLogSubscribers(rows)
@@ -457,7 +362,6 @@ const getNewChangeLogsSync = (lastSeenLogId: number) => {
 		  ORDER BY id DESC`,
 		[lastSeenLogId]
 	)
-
 	const rows = result.rows as any as schema.ChangeLog[]
 
 	return { rows }
@@ -578,18 +482,11 @@ function logFileSystemSupport() {
 	]
 
 	checks.forEach(({ name, supported }) => {
-		console.log(`${name}: ${supported ? '✅ supported' : '❌ not supported'}`)
+		log(`${name}: ${supported ? '✅ supported' : '❌ not supported'}`)
 	})
 }
 
-// Example usage:
-
 logFileSystemSupport()
-// onconnect = function (event) {
-// 	console.log('connect!')
-// 	const port = event.ports[0]
-
-// }
 
 const portApi = {
 	...api

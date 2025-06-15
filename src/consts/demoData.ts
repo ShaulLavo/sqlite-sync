@@ -8,7 +8,7 @@ interface DemoUser {
 	picture?: string
 	bio?: string
 	location?: string
-	isActive?: boolean
+	is_active?: boolean
 }
 
 interface DemoPost {
@@ -113,7 +113,7 @@ export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
 				picture: getRandomRobot(demoUsers.indexOf(u) + 1),
 				bio: u.bio,
 				location: u.location,
-				isActive: Math.random() < 0.5
+				is_active: Math.random() < 0.5
 			}))
 		)
 		.onConflictDoNothing()
@@ -125,12 +125,12 @@ export async function seedDemoData(db: SqliteRemoteDatabase<typeof schema>) {
 	})
 
 	const postsToInsert = demoPosts.map(p => {
-		const authorId = emailToIdMap[p.authorEmail]
-		if (!authorId) {
+		const author_id = emailToIdMap[p.authorEmail]
+		if (author_id === undefined) {
 			throw new Error(`No user found for email ${p.authorEmail}`)
 		}
 		return {
-			authorId,
+			author_id,
 			title: p.title,
 			body: p.body
 		}

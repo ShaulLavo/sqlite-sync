@@ -1,22 +1,23 @@
 import * as Comlink from 'comlink'
-import { createEffect, on, onMount } from 'solid-js'
+import { createEffect, onCleanup, onMount } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { seedDemoData } from '../consts/demoData'
 import { useDb } from '../context/DbProvider'
 import type { User } from '../sqlite/schema'
 import * as schema from '../sqlite/schema'
-import { trackDeep } from '@solid-primitives/deep'
 
 export const useUsers = () => {
 	const { db, api } = useDb()
 
 	const [users, setUsers] = createStore<User[]>([])
 
+	let unsubscribe: (() => void) | undefined
+
 	onMount(async () => {
 		const database = await db
 		const initialUsers = await database.select().from(schema.users).all()
 		setUsers(initialUsers)
-		api.subscribeToTable(
+		unsubscribe = await api.subscribeToTable(
 			'users',
 			Comlink.proxy(changes => {
 				for (const change of changes) {
@@ -48,17 +49,17 @@ export const useUsers = () => {
 		)
 	})
 
-	api.clientReady.then(() => {
-		createEffect(async () => {
-			if (users.length === 0) {
-				const database = await db
-				await seedDemoData(database)
-				const initialUsers = await database.select().from(schema.users).all()
+	createEffect(async () => {
+		if (users.length === 0) {
+			const database = await db
+			await seedDemoData(database)
+			const initialUsers = await database.select().from(schema.users).all()
 
-				setUsers(initialUsers)
-			}
-		})
+			setUsers(initialUsers)
+		}
 	})
-
+	onCleanup(() => {
+		unsubscribe?.()
+	})
 	return users
 }

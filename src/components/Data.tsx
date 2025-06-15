@@ -140,7 +140,7 @@ export const Data = () => {
 											<h3 class="text-xl font-medium">{post.title}</h3>
 											<p class="text-gray-700 mt-1">{post.body}</p>
 											<p class="text-sm text-gray-500 mt-2">
-												Author ID: {post.authorId} | Post ID: {post.id}
+												Author ID: {post.author_id} | Post ID: {post.id}
 											</p>
 										</li>
 									)}

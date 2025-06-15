@@ -1,5 +1,3 @@
-'use client'
-
 import { createVirtualList } from '@solid-primitives/virtual'
 import { sql } from 'drizzle-orm'
 import { createSignal, For, onMount, Show, type Component } from 'solid-js'

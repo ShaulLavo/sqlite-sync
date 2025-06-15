@@ -1,15 +1,19 @@
 import type { Client } from '@libsql/client'
+import {
+	type SQLiteTable,
+	type TableConfig,
+	getTableConfig
+} from 'drizzle-orm/sqlite-core'
 import * as schema from '../sqlite/schema'
-import { type SQLiteTable, getTableConfig } from 'drizzle-orm/sqlite-core'
 
-function isSqliteTable(t: any): t is SQLiteTable<any> {
+function isSqliteTable(t: any): t is SQLiteTable<TableConfig> {
 	return t && typeof t.getSQL === 'function' && Boolean(t.getSQL())
 }
 
 export async function generateAllTriggers(client: Client) {
-	const tables = Object.values(schema).filter(isSqliteTable)
-
+	const tables = Object.values(schema)
 	for (const tbl of tables) {
+		if (!isSqliteTable(tbl)) continue
 		const { name: tblName, columns, primaryKeys } = getTableConfig(tbl)
 		if (tblName === 'change_log') continue
 

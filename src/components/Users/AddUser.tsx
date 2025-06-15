@@ -1,5 +1,3 @@
-'use client'
-
 import { createSignal, type Component } from 'solid-js'
 import Button from '../ui/Button'
 

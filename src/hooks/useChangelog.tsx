@@ -8,8 +8,9 @@ import { desc } from 'drizzle-orm'
 export const useChangelog = () => {
 	const { api, db } = useDb()
 	const logs = createMutable<ChangeLog[]>([])
-
 	const N = 1000
+
+	let unsubscribe: (() => void) | undefined
 
 	onMount(async () => {
 		const database = await db
@@ -23,19 +24,19 @@ export const useChangelog = () => {
 
 		logs.splice(0, logs.length, ...recent)
 
-		const unsubscribe = await api.subscribeToChangeLog(
+		unsubscribe = await api.subscribeToChangeLog(
 			Comlink.proxy((incoming: ChangeLog[]) => {
 				const toAdd = incoming.length > N ? incoming.slice(-N) : incoming
-
 				batch(() => {
 					logs.unshift(...toAdd.reverse())
-
 					if (logs.length > N) logs.splice(N)
 				})
 			})
 		)
+	})
 
-		onCleanup(unsubscribe)
+	onCleanup(() => {
+		unsubscribe?.()
 	})
 
 	return logs

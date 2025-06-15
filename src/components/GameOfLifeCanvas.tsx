@@ -1,5 +1,3 @@
-'use client'
-
 import { and, eq, sql } from 'drizzle-orm'
 import {
 	createEffect,
@@ -17,14 +15,14 @@ import Button from './ui/Button'
 import { isDarkMode } from '../routes/Home'
 
 export function GameOfLifeCanvas() {
-	const gridSize = { width: 42, height: 5 }
+	const gridSize = { width: 50, height: 10 }
+	const cellSize = 20
 
 	const [cells, lastChanges, loading] = useCells({ ...gridSize })
 	const { db } = useDb()
 	const [running, setRunning] = createSignal(false)
 	let timeoutId: ReturnType<typeof setTimeout>
 	let canvasRef!: HTMLCanvasElement
-	const cellSize = 20
 	const aliveColor = createMemo(() =>
 		isDarkMode() ? 'rgb(219, 39, 119)' : 'rgb(236, 72, 153)'
 	)
@@ -74,7 +72,7 @@ export function GameOfLifeCanvas() {
 			}
 		}
 		await database.batch(updates)
-		timeoutId = setTimeout(runLoop, 300)
+		timeoutId = setTimeout(runLoop, 1)
 	}
 
 	function runLoop() {
@@ -217,14 +215,14 @@ export function GameOfLifeCanvas() {
 				<Button
 					onClick={clearGrid}
 					disabled={loading()}
-					class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white"
+					class="bg-gray-700 hover:bg-gray-600 text-white"
 				>
 					Clear Grid
 				</Button>
 				<Button
 					onClick={seedDemo}
 					disabled={loading()}
-					class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white"
+					class="bg-gray-700 hover:bg-gray-600 text-white"
 				>
 					Reset Demo
 				</Button>
