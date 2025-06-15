@@ -12,7 +12,7 @@ import { runMigrations } from './migrations'
 import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
 import type { DriverQuery, Sqlite3Method } from './types'
-const shouldLog = false
+const shouldLog = true
 const log = (...params: any[]) => shouldLog && console.log(...params)
 
 let sqlite3: Sqlite3Static
