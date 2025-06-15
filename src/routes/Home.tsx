@@ -1,24 +1,16 @@
+import { makePersisted } from '@solid-primitives/storage'
 import {
 	type Component,
 	createEffect,
 	createSignal,
-	on,
 	onMount,
 	type Signal
 } from 'solid-js'
-import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 import { ChangeLogTable } from '../components/ChangeLog'
+import { GameOfLifeCanvas } from '../components/GameOfLifeCanvas'
 import { ManageUsers } from '../components/Users/ManageUsers'
 import { MoonIcon, SunIcon } from '../components/icons/ThemeIcons'
-import { makePersisted } from '@solid-primitives/storage'
-import { Logo } from '../components/Logo'
 import { useDb } from '../context/DbProvider'
-import type { ChangeCallback } from '../sqlite'
-import * as Comlink from 'comlink'
-import type { ChangeLog } from '../sqlite/schema'
-import ky from 'ky'
-import { createBatchFlusher } from '../utils/createBatchFlusher'
-import { setupWebsocket } from '../sync/socket'
 export const [isDarkMode, setIsDarkMode] = makePersisted(
 	createSignal(window.matchMedia('(prefers-color-scheme: dark)').matches)
 )

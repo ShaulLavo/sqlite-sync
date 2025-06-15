@@ -40,7 +40,7 @@ const initClient = async () => {
 			name: path,
 			initialCapacity: 10
 		})
-		// await poolUtil.wipeFiles()
+		await poolUtil.wipeFiles()
 		;[client, db] = createClient({ url: path, poolUtil }, sqlite3)
 		await client.execute(`PRAGMA foreign_keys = ON;`)
 		await runMigrations(client)
@@ -277,9 +277,9 @@ const notifyChangeLogSubscribers = (changes: schema.ChangeLog[]) => {
 const notifyBatched = () => {
 	const { rows } = getNewChangeLogsSync(logCursor)
 	if (rows.length === 0) return
-	// log(
-	// 	`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
-	// )
+	log(
+		`Worker: Fetched ${rows.length} change logs since last cursor ${logCursor}`
+	)
 
 	logCursor = rows[0].id
 	notifyChangeLogSubscribers(rows)
@@ -300,13 +300,14 @@ const notify = () => {
 
 const onClientReady = async () => {
 	log('Worker: Client is ready!')
-
+	const all = await drizzleClient
+		.select({ id: schema.changeLog.id })
+		.from(schema.changeLog)
 	const [row] = await drizzleClient
 		.select({ id: schema.changeLog.id })
 		.from(schema.changeLog)
 		.orderBy(desc(schema.changeLog.id))
 		.limit(1)
-
 	logCursor = row ? row.id - 1000 : 0
 	const { rows } = await getNewChangeLogs(logCursor)
 	notifyChangeLogSubscribers(rows)
@@ -361,7 +362,6 @@ const getNewChangeLogsSync = (lastSeenLogId: number) => {
 		  ORDER BY id DESC`,
 		[lastSeenLogId]
 	)
-
 	const rows = result.rows as any as schema.ChangeLog[]
 
 	return { rows }
@@ -482,7 +482,7 @@ function logFileSystemSupport() {
 	]
 
 	checks.forEach(({ name, supported }) => {
-		console.log(`${name}: ${supported ? '✅ supported' : '❌ not supported'}`)
+		log(`${name}: ${supported ? '✅ supported' : '❌ not supported'}`)
 	})
 }
 

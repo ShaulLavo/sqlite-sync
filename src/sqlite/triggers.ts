@@ -12,14 +12,12 @@ function isSqliteTable(t: any): t is SQLiteTable<TableConfig> {
 
 export async function generateAllTriggers(client: Client) {
 	const tables = Object.values(schema)
-
 	for (const tbl of tables) {
-		if (!isSqliteTable(tbl)) return
+		if (!isSqliteTable(tbl)) continue
 		const { name: tblName, columns, primaryKeys } = getTableConfig(tbl)
 		if (tblName === 'change_log') continue
 
 		const allCols = columns.map(c => c.name)
-		console.log('allCols', allCols)
 		const dynamicPkCols =
 			primaryKeys?.flatMap(pk => pk.columns?.map(c => c.name) ?? []) ?? []
 		const pkCols = [

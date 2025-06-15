@@ -29,6 +29,7 @@ export function createBatchFlusher<T>(
 			console.error('Batch flush failed, retrying:', error)
 
 			buffer = itemsToSend.concat(buffer)
+			if (!timer) timer = setTimeout(flush, maxDelay)
 		} finally {
 			inFlight = false
 

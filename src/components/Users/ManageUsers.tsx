@@ -35,14 +35,15 @@ export const ManageUsers: Component = () => {
 		setError(null)
 		setSuccess(null)
 		try {
-			await (await db).insert(schema.users).values({
+			const database = await db
+			await database.insert(schema.users).values({
 				name: name.trim(),
 				email: email.trim(),
 				bio: bio.trim(),
 				location: location.trim(),
 				picture: getRandomRobot(users.length + 1),
-				isActive: true,
-				createdAt: new Date().toISOString()
+				is_active: true,
+				created_at: new Date().toISOString()
 			})
 
 			setSuccess('User added successfully.')
