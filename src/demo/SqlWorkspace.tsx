@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
 import type { QuerySnapshot, ReactiveDatabase, SqlValue } from '../core/types'
 import { Icon } from './icons'
 
@@ -23,6 +23,7 @@ const examples = [
 ]
 
 export function SqlWorkspace(props: { db: ReactiveDatabase; initialTable?: string; onError: (error: unknown) => void }) {
+	const editorId = createUniqueId()
 	const [sql, setSql] = createSignal(props.initialTable ? `SELECT * FROM "${props.initialTable}" LIMIT 100` : examples[0].sql)
 	const [activeSql, setActiveSql] = createSignal(sql())
 	const [snapshot, setSnapshot] = createSignal<QuerySnapshot>({ status: 'loading' })
@@ -66,7 +67,7 @@ export function SqlWorkspace(props: { db: ReactiveDatabase; initialTable?: strin
 	return <section class="sql-section" aria-label="Reactive SQL playground">
 		<div class="section-heading"><div><p class="eyebrow">02 / Ask SQLite anything</p><h2>SQL playground</h2></div><span class="storage-badge"><span class="status-dot" /> Live result subscription</span></div>
 		<div class="query-examples"><span>Try a query</span><For each={examples}>{example => <button onClick={() => { setSql(example.sql); watch(example.sql) }}>{example.label}</button>}</For></div>
-		<div class="editor-shell"><div class="editor-heading"><span><Icon name="code" size={15} /> query.sql</span><span>SQLite · Ctrl / ⌘ + Enter to subscribe</span></div><label class="sr-only" for="sql-editor">SQL query or mutation</label><textarea id="sql-editor" value={sql()} onInput={event => setSql(event.currentTarget.value)} onKeyDown={editorKey} spellcheck={false} /><div class="editor-actions"><span>SELECT queries stay live. Execute mutations separately.</span><div><button class="button quiet" disabled={busy()} onClick={() => void runMutation()}>Execute mutation</button><button class="button primary" onClick={() => watch(sql())}><Icon name="play" size={15} />Subscribe query</button></div></div></div>
+		<div class="editor-shell"><div class="editor-heading"><span><Icon name="code" size={15} /> query.sql</span><span>SQLite · Ctrl / ⌘ + Enter to subscribe</span></div><label class="sr-only" for={editorId}>SQL query or mutation</label><textarea id={editorId} value={sql()} onInput={event => setSql(event.currentTarget.value)} onKeyDown={editorKey} spellcheck={false} /><div class="editor-actions"><span>SELECT queries stay live. Execute mutations separately.</span><div><button class="button quiet" disabled={busy()} onClick={() => void runMutation()}>Execute mutation</button><button class="button primary" onClick={() => watch(sql())}><Icon name="play" size={15} />Subscribe query</button></div></div></div>
 		<Show when={mutationResult()}><p class="caption" role="status">{mutationResult()}</p></Show>
 		<div class="result-heading"><h3>Live results</h3><span>{snapshot().status === 'ready' ? 'Committed snapshot' : snapshot().status} · {updates()} deliveries · max 100 displayed rows</span></div>
 		<ResultTable snapshot={snapshot()} />

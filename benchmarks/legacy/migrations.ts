@@ -1,5 +1,5 @@
 import type { Client } from './client-wasm'
-import { migrationStatements } from '../consts/migrations'
+import { migrationStatements } from '../../src/consts/migrations'
 
 export async function runMigrations(c: Client): Promise<void> {
 	const { rows: tblRows } = await c.execute(

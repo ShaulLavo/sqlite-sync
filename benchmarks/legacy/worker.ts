@@ -1,5 +1,5 @@
 import sqlite3InitModule, {
-	Database,
+	type Database,
 	type SAHPoolUtil,
 	type Sqlite3Static,
 	type WasmPointer
@@ -7,12 +7,12 @@ import sqlite3InitModule, {
 import * as Comlink from 'comlink'
 import { desc, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
-import { createClient, type InArgs, type Sqlite3Client } from '../../src/sqlite/client-wasm'
-import { batchDriver as batchDriverFn, driver as driverFn } from '../../src/sqlite/drivers'
-import { runMigrations } from '../../src/sqlite/migrations'
-import * as schema from '../../src/sqlite/schema'
+import { createClient, type InArgs, type Sqlite3Client } from './client-wasm'
+import { batchDriver as batchDriverFn, driver as driverFn } from './drivers'
+import { runMigrations } from './migrations'
+import * as schema from './schema'
 import { generateAllTriggers } from './triggers'
-import type { DriverQuery, Sqlite3Method } from '../../src/sqlite/types'
+import type { DriverQuery, Sqlite3Method } from './types'
 const shouldLog = false
 const log = (...params: any[]) => shouldLog && console.log(...params)
 

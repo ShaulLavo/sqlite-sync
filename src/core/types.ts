@@ -1,5 +1,5 @@
 export type SqlValue = null | string | number | bigint | Uint8Array
-export type Row = Record<string, SqlValue>
+export type Row = Readonly<Record<string, SqlValue>>
 export type Statement = { sql: string; params?: readonly SqlValue[] }
 export type QueryResult = { columns: string[]; rows: SqlValue[][]; rowsAffected: number }
 export type Unsubscribe = () => void
@@ -10,6 +10,7 @@ export type DatabaseOptions = {
 	ownership?: 'shared' | 'exclusive'
 	durableLog?: boolean
 	migrations?: readonly Migration[]
+	legacyJournal?: { table: string; column: string }
 	timeoutMs?: number
 }
 export type Change = {
@@ -26,6 +27,8 @@ export type CommitEvent = {
 	changes: Change[]
 	committedAt: number
 	executionMs: number
+	observationMs: number
+	totals: Pick<Inspection, 'commits' | 'mutations' | 'queryRuns' | 'invalidations'>
 	queryMs: number
 	invalidations: number
 	queryRuns: number
@@ -53,8 +56,8 @@ export type Inspection = {
 	queries: { sql: string; tables: string[]; subscribers: number; mode: 'incremental' | 'rerun' }[]
 }
 export type WireUpdate =
-	| { kind: 'snapshot'; columns: string[]; rows: SqlValue[][]; revision: number }
-	| { kind: 'patch'; changes: Change[]; revision: number }
+	| { kind: 'snapshot'; columns: string[]; rows: SqlValue[][]; revision: number; keyColumns?: string[] }
+	| { kind: 'patch'; rows: { key: Row; row: Row }[]; removed: Row[]; revision: number }
 	| { kind: 'error'; message: string }
 export type WireListener = (update: WireUpdate) => void | Promise<void>
 export interface WorkerApi {
@@ -64,6 +67,7 @@ export interface WorkerApi {
 	watch(id: string, spec: QuerySpec, listener: WireListener): Promise<void>
 	unwatch(id: string): Promise<void>
 	observe(listener: (event: DatabaseEvent) => void | Promise<void>): Promise<void>
+	unobserve(): Promise<void>
 	inspect(): Promise<Inspection>
 	exportDatabase(): Promise<Uint8Array>
 	disconnect(): Promise<void>

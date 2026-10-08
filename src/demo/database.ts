@@ -7,14 +7,18 @@ export const HEIGHT = 24
 
 export function connectDemo(): ReactiveDatabase {
 	return openDatabase({
-		migrations: migrationStatements.map(({ id, sql }) => ({ id, sql })),
+		migrations: [...migrationStatements.map(({ id, sql }) => ({ id, sql })), {
+			id: 'reactive-core-v1',
+			sql: ['cells', 'users', 'posts', 'migrations'].flatMap(table => ['insert', 'update', 'delete', 'skip_noop'].map(operation => `DROP TRIGGER IF EXISTS trg_${table}_${operation}`))
+		}],
+		legacyJournal: { table: 'migrations', column: 'name' },
 		durableLog: true
 	})
 }
 
 export function numeric(row: Row, key: string): number {
 	const value = row[key]
-	if (typeof value !== 'number') throw new Error(`Expected numeric ${key}`)
+	if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Expected numeric ${key}`)
 	return value
 }
 
