@@ -26,3 +26,7 @@ dist-ssr
 /test-results/
 /playwright-report/
 /benchmarks/results/
+
+/dist-lib/
+/benchmark-results/
+/production-test-results/

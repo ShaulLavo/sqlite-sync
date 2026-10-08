@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "paths": {
+      "/tests/browser/*": [
+        "./tests/browser/*"
+      ],
+      "/src/*": [
+        "./src/*"
+      ],
+      "/benchmarks/*": [
+        "./benchmarks/*"
+      ],
+      "/dist-lib/sqlite-sync.js": [
+        "./src/core/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "tests/**/*.ts",
+    "benchmarks/**/*.ts",
+    "scripts/check-core-boundaries.ts"
+  ]
+}

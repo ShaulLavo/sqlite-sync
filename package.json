@@ -1,48 +1,70 @@
 {
   "name": "sqlite-sync",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "bun run typecheck && vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "generate-migrations": "bun scripts/generate-migrations.ts",
-    "db:generate": "npx drizzle-kit generate && bun scripts/generate-migrations.ts"
+    "db:generate": "npx drizzle-kit generate && bun scripts/generate-migrations.ts",
+    "typecheck": "bun scripts/check-core-boundaries.ts && tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "test:browser": "playwright test",
+    "bench": "playwright test --config playwright.bench.config.ts",
+    "check": "bun run test && bun run build && bun run build:lib && bun run test:browser"
   },
   "dependencies": {
-    "@formkit/auto-animate": "^0.8.2",
-    "@libsql/client": "^0.15.8",
-    "@libsql/client-wasm": "^0.15.8",
-    "@libsql/core": "^0.15.9",
-    "@libsql/libsql-wasm-experimental": "^0.0.3",
-    "@solid-primitives/bounds": "^0.1.1",
-    "@solid-primitives/deep": "^0.3.2",
-    "@solid-primitives/scheduled": "^1.5.1",
-    "@solid-primitives/storage": "^4.3.2",
-    "@solid-primitives/virtual": "^0.2.1",
-    "@solidjs/router": "^0.15.3",
     "@sqlite.org/sqlite-wasm": "^3.49.2-build1",
-    "@tailwindcss/vite": "^4.1.8",
-    "comlink": "^4.4.2",
-    "drizzle-orm": "^0.44.1",
-    "solid-js": "^1.9.5",
-    "sqlite-parser": "^1.0.1",
-    "tailwindcss": "^4.1.8",
-    "vite-plugin-top-level-await": "^1.5.0"
+    "comlink": "^4.4.2"
   },
   "devDependencies": {
+    "@libsql/client": "0.15.8",
+    "@libsql/core": "^0.15.9",
+    "@libsql/libsql-wasm-experimental": "^0.0.3",
     "@playwright/test": "^1.64.0",
+    "@solidjs/router": "^0.15.3",
+    "@tailwindcss/vite": "^4.1.8",
     "@types/node": "^26.6.4",
     "@types/sharedworker": "^0.0.164",
-    "@vitest/browser": "^3.1.4",
     "drizzle-kit": "^0.31.1",
-    "jsdom": "^26.1.0",
-    "playwright": "^1.64.0",
+    "drizzle-orm": "^0.44.1",
+    "solid-js": "^1.9.5",
+    "tailwindcss": "^4.1.8",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-solid": "^2.11.6",
     "vitest": "^3.1.4"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist-lib/types/core/index.d.ts",
+      "import": "./dist-lib/sqlite-sync.js"
+    },
+    "./solid": {
+      "types": "./dist-lib/types/adapters/solid.d.ts",
+      "import": "./dist-lib/solid.js"
+    },
+    "./drizzle": {
+      "types": "./dist-lib/types/adapters/drizzle.d.ts",
+      "import": "./dist-lib/drizzle.js"
+    }
+  },
+  "files": [
+    "dist-lib"
+  ],
+  "peerDependencies": {
+    "solid-js": "^1.9.5",
+    "drizzle-orm": "^0.44.1"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    }
   }
 }

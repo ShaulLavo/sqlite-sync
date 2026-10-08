@@ -73,7 +73,7 @@ h2 { font-size: 23px; letter-spacing: -.7px; font-weight: 560; margin-top: 6px; 
 .button.quiet { background: transparent; border-color: transparent; color: var(--muted); }
 @media (hover: hover) and (pointer: fine) {
 	.button { transition: transform 120ms var(--ease-out); }
-	.button:active { transform: scale(.97); }
+	.button:active:not(:focus-visible) { transform: scale(.97); }
 	.header-links a:hover, .header-links button:hover, .demo-tabs button:hover, .board-footer button:hover { color: var(--green); }
 	.board-footer button:hover { color: white; }
 }
