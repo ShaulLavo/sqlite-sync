@@ -1,0 +1,614 @@
+{
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+    "hardwareConcurrency": 28,
+    "time": "2026-10-08T15:05:55.519Z"
+  },
+  "sqlite": {
+    "sqlite": "3.49.2",
+    "rounds": 7,
+    "storage": "OPFS SAH pool",
+    "wasmHeapBytes": 24248320,
+    "results": [
+      {
+        "strategy": "bare",
+        "workload": "single insert/update/delete x100",
+        "rows": 300,
+        "medianMs": 1203.199999988079,
+        "minMs": 913.8999999761581,
+        "maxMs": 1412.199999988079,
+        "samples": [
+          913.8999999761581,
+          1203.199999988079,
+          1001.1000000238419,
+          1201.6000000238419,
+          1351.8999999761581,
+          1412.199999988079,
+          1362.300000011921
+        ]
+      },
+      {
+        "strategy": "bare",
+        "workload": "5000-row bulk update",
+        "rows": 5000,
+        "medianMs": 16.100000023841858,
+        "minMs": 10.799999952316284,
+        "maxMs": 22.19999998807907,
+        "samples": [
+          18.30000001192093,
+          22.19999998807907,
+          17.899999976158142,
+          16.100000023841858,
+          12.800000011920929,
+          11.5,
+          10.799999952316284
+        ]
+      },
+      {
+        "strategy": "bare",
+        "workload": "1000 statements / transaction",
+        "rows": 1000,
+        "medianMs": 16,
+        "minMs": 12.899999976158142,
+        "maxMs": 31.19999998807907,
+        "samples": [
+          31.19999998807907,
+          21,
+          12.899999976158142,
+          16,
+          12.900000035762787,
+          14.599999964237213,
+          21.5
+        ]
+      },
+      {
+        "strategy": "bare",
+        "workload": "1000 parameterized statements / transaction",
+        "rows": 1000,
+        "medianMs": 19.600000023841858,
+        "minMs": 9.5,
+        "maxMs": 29.100000023841858,
+        "samples": [
+          11,
+          10.899999976158142,
+          9.5,
+          19.600000023841858,
+          20.099999964237213,
+          22.5,
+          29.100000023841858
+        ]
+      },
+      {
+        "strategy": "bare",
+        "workload": "5000-row replacement insert",
+        "rows": 10000,
+        "medianMs": 14.5,
+        "minMs": 13.5,
+        "maxMs": 34.39999997615814,
+        "samples": [
+          34.39999997615814,
+          21.399999976158142,
+          14.5,
+          15.5,
+          13.5,
+          14.100000023841858,
+          13.599999964237213
+        ]
+      },
+      {
+        "strategy": "bare",
+        "workload": "SQLite allocator",
+        "currentBytes": 381256,
+        "peakBytes": 411864
+      },
+      {
+        "strategy": "legacy",
+        "workload": "single insert/update/delete x100",
+        "rows": 300,
+        "medianMs": 1374.800000011921,
+        "minMs": 1188.1000000238419,
+        "maxMs": 1891.7000000476837,
+        "samples": [
+          1891.7000000476837,
+          1725.7999999523163,
+          1374.800000011921,
+          1372.1000000238419,
+          1623.0999999642372,
+          1257.5,
+          1188.1000000238419
+        ]
+      },
+      {
+        "strategy": "legacy",
+        "workload": "5000-row bulk update",
+        "rows": 5000,
+        "medianMs": 40.10000002384186,
+        "minMs": 32.39999997615814,
+        "maxMs": 47.39999997615814,
+        "samples": [
+          47.39999997615814,
+          39.5,
+          40.10000002384186,
+          43.89999997615814,
+          40.60000002384186,
+          32.39999997615814,
+          38.40000003576279
+        ]
+      },
+      {
+        "strategy": "legacy",
+        "workload": "1000 statements / transaction",
+        "rows": 1000,
+        "medianMs": 35.60000002384186,
+        "minMs": 30.5,
+        "maxMs": 70.69999998807907,
+        "samples": [
+          35.39999997615814,
+          33.80000001192093,
+          30.5,
+          35.60000002384186,
+          70.69999998807907,
+          48.19999998807907,
+          39.60000002384186
+        ]
+      },
+      {
+        "strategy": "legacy",
+        "workload": "1000 parameterized statements / transaction",
+        "rows": 1000,
+        "medianMs": 32.19999998807907,
+        "minMs": 25.69999998807907,
+        "maxMs": 53.40000003576279,
+        "samples": [
+          50.80000001192093,
+          53.40000003576279,
+          41.5,
+          26.69999998807907,
+          27,
+          32.19999998807907,
+          25.69999998807907
+        ]
+      },
+      {
+        "strategy": "legacy",
+        "workload": "5000-row replacement insert",
+        "rows": 10000,
+        "medianMs": 98,
+        "minMs": 84.79999995231628,
+        "maxMs": 114.39999997615814,
+        "samples": [
+          103.90000003576279,
+          89.80000001192093,
+          84.79999995231628,
+          99.90000003576279,
+          98,
+          114.39999997615814,
+          95.5
+        ]
+      },
+      {
+        "strategy": "legacy",
+        "workload": "SQLite allocator",
+        "currentBytes": 17033376,
+        "peakBytes": 17185848
+      },
+      {
+        "strategy": "temporary",
+        "workload": "single insert/update/delete x100",
+        "rows": 300,
+        "medianMs": 624.1999999880791,
+        "minMs": 548.5,
+        "maxMs": 723.5,
+        "samples": [
+          723.5,
+          548.5,
+          717.7999999523163,
+          622.1000000238419,
+          620.8999999761581,
+          676.8000000119209,
+          624.1999999880791
+        ]
+      },
+      {
+        "strategy": "temporary",
+        "workload": "5000-row bulk update",
+        "rows": 5000,
+        "medianMs": 32.89999997615814,
+        "minMs": 30.599999964237213,
+        "maxMs": 45.40000003576279,
+        "samples": [
+          30.80000001192093,
+          30.599999964237213,
+          30.80000001192093,
+          35.40000003576279,
+          35.799999952316284,
+          45.40000003576279,
+          32.89999997615814
+        ]
+      },
+      {
+        "strategy": "temporary",
+        "workload": "1000 statements / transaction",
+        "rows": 1000,
+        "medianMs": 138.5999999642372,
+        "minMs": 136.4000000357628,
+        "maxMs": 142.69999998807907,
+        "samples": [
+          138.80000001192093,
+          142.69999998807907,
+          136.5,
+          137.19999998807907,
+          136.4000000357628,
+          138.5999999642372,
+          138.70000004768372
+        ]
+      },
+      {
+        "strategy": "temporary",
+        "workload": "1000 parameterized statements / transaction",
+        "rows": 1000,
+        "medianMs": 16,
+        "minMs": 15.099999964237213,
+        "maxMs": 23.80000001192093,
+        "samples": [
+          15.5,
+          15.599999964237213,
+          17.600000023841858,
+          23.80000001192093,
+          15.099999964237213,
+          17.69999998807907,
+          16
+        ]
+      },
+      {
+        "strategy": "temporary",
+        "workload": "5000-row replacement insert",
+        "rows": 10000,
+        "medianMs": 76.80000001192093,
+        "minMs": 72.39999997615814,
+        "maxMs": 84.19999998807907,
+        "samples": [
+          72.39999997615814,
+          84.19999998807907,
+          76.70000004768372,
+          77.29999995231628,
+          74.5,
+          79,
+          76.80000001192093
+        ]
+      },
+      {
+        "strategy": "temporary",
+        "workload": "SQLite allocator",
+        "currentBytes": 3707944,
+        "peakBytes": 3862408
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "single insert/update/delete x100",
+        "rows": 300,
+        "medianMs": 1000.3000000119209,
+        "minMs": 858.1999999880791,
+        "maxMs": 1548.2999999523163,
+        "samples": [
+          858.1999999880791,
+          963.1000000238419,
+          965.8999999761581,
+          1000.3000000119209,
+          1217.6000000238419,
+          1548.2999999523163,
+          1123.300000011921
+        ]
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "5000-row bulk update",
+        "rows": 5000,
+        "medianMs": 51.19999998807907,
+        "minMs": 46.10000002384186,
+        "maxMs": 57.30000001192093,
+        "samples": [
+          53,
+          51.19999998807907,
+          57.30000001192093,
+          53.39999997615814,
+          46.10000002384186,
+          50.59999996423721,
+          49.10000002384186
+        ]
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "1000 statements / transaction",
+        "rows": 1000,
+        "medianMs": 259.30000001192093,
+        "minMs": 251.80000001192093,
+        "maxMs": 266.7999999523163,
+        "samples": [
+          261.9000000357628,
+          256.80000001192093,
+          252.79999995231628,
+          261.2000000476837,
+          266.7999999523163,
+          259.30000001192093,
+          251.80000001192093
+        ]
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "1000 parameterized statements / transaction",
+        "rows": 1000,
+        "medianMs": 26.5,
+        "minMs": 25,
+        "maxMs": 29.69999998807907,
+        "samples": [
+          26.600000023841858,
+          25,
+          26.5,
+          25.799999952316284,
+          28.80000001192093,
+          25.100000023841858,
+          29.69999998807907
+        ]
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "5000-row replacement insert",
+        "rows": 10000,
+        "medianMs": 148.89999997615814,
+        "minMs": 130,
+        "maxMs": 153.5999999642372,
+        "samples": [
+          131.69999998807907,
+          148.89999997615814,
+          149.60000002384186,
+          149.39999997615814,
+          145.10000002384186,
+          153.5999999642372,
+          130
+        ]
+      },
+      {
+        "strategy": "temporary+durable",
+        "workload": "SQLite allocator",
+        "currentBytes": 22125728,
+        "peakBytes": 22287296
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "single insert/update/delete x100",
+        "rows": 300,
+        "medianMs": 748.4000000357628,
+        "minMs": 660.8999999761581,
+        "maxMs": 872,
+        "samples": [
+          707.8000000119209,
+          757.5999999642372,
+          872,
+          758.1999999880791,
+          748.4000000357628,
+          660.8999999761581,
+          697.8000000119209
+        ]
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "5000-row bulk update",
+        "rows": 5000,
+        "medianMs": 14,
+        "minMs": 13.199999988079071,
+        "maxMs": 17,
+        "samples": [
+          13.199999988079071,
+          14,
+          15.5,
+          13.5,
+          15.599999964237213,
+          17,
+          13.300000011920929
+        ]
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "1000 statements / transaction",
+        "rows": 1000,
+        "medianMs": 9.699999988079071,
+        "minMs": 8.800000011920929,
+        "maxMs": 18.69999998807907,
+        "samples": [
+          9.699999988079071,
+          11.699999988079071,
+          9.5,
+          8.800000011920929,
+          11.199999988079071,
+          18.69999998807907,
+          9.199999988079071
+        ]
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "1000 parameterized statements / transaction",
+        "rows": 1000,
+        "medianMs": 8.600000023841858,
+        "minMs": 8.399999976158142,
+        "maxMs": 11.800000011920929,
+        "samples": [
+          8.600000023841858,
+          8.600000023841858,
+          9.199999988079071,
+          11.800000011920929,
+          8.399999976158142,
+          8.5,
+          10.899999976158142
+        ]
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "5000-row replacement insert",
+        "rows": 10000,
+        "medianMs": 50.5,
+        "minMs": 47.90000003576279,
+        "maxMs": 65,
+        "samples": [
+          65,
+          47.90000003576279,
+          56.799999952316284,
+          49.700000047683716,
+          49.19999998807907,
+          51.39999997615814,
+          50.5
+        ]
+      },
+      {
+        "strategy": "native-probe",
+        "workload": "SQLite allocator",
+        "currentBytes": 381288,
+        "peakBytes": 411896
+      }
+    ]
+  },
+  "communication": [
+    {
+      "strategy": "legacy",
+      "subscribers": 1,
+      "tables": "same",
+      "mutationP50Ms": 4.300000011920929,
+      "notificationP50Ms": 4.300000011920929,
+      "notificationP95Ms": 6.100000023841858,
+      "roundTripP50Ms": 0.19999998807907104,
+      "notifications": 100
+    },
+    {
+      "strategy": "legacy",
+      "subscribers": 1,
+      "tables": "different",
+      "mutationP50Ms": 3.600000023841858,
+      "notificationP50Ms": 3.600000023841858,
+      "notificationP95Ms": 6.099999964237213,
+      "roundTripP50Ms": 0.19999998807907104,
+      "notifications": 100
+    },
+    {
+      "strategy": "legacy",
+      "subscribers": 20,
+      "tables": "same",
+      "mutationP50Ms": 4.5,
+      "notificationP50Ms": 4.5,
+      "notificationP95Ms": 6.300000011920929,
+      "roundTripP50Ms": 0.19999998807907104,
+      "notifications": 2000
+    },
+    {
+      "strategy": "legacy",
+      "subscribers": 20,
+      "tables": "different",
+      "mutationP50Ms": 4.300000011920929,
+      "notificationP50Ms": 4.300000011920929,
+      "notificationP95Ms": 6.699999988079071,
+      "roundTripP50Ms": 0.19999998807907104,
+      "notifications": 1000
+    },
+    {
+      "strategy": "new",
+      "subscribers": 1,
+      "tables": "same",
+      "mutationP50Ms": 3.300000011920929,
+      "notificationP50Ms": 3.300000011920929,
+      "notificationP95Ms": 5,
+      "roundTripP50Ms": 0,
+      "notifications": 100
+    },
+    {
+      "strategy": "new",
+      "subscribers": 1,
+      "tables": "different",
+      "mutationP50Ms": 3.5,
+      "notificationP50Ms": 3.5,
+      "notificationP95Ms": 5.200000047683716,
+      "roundTripP50Ms": 0,
+      "notifications": 100
+    },
+    {
+      "strategy": "new",
+      "subscribers": 20,
+      "tables": "same",
+      "mutationP50Ms": 3.899999976158142,
+      "notificationP50Ms": 3.899999976158142,
+      "notificationP95Ms": 5.900000035762787,
+      "roundTripP50Ms": 0,
+      "notifications": 2000
+    },
+    {
+      "strategy": "new",
+      "subscribers": 20,
+      "tables": "different",
+      "mutationP50Ms": 3.300000011920929,
+      "notificationP50Ms": 3.300000011920929,
+      "notificationP95Ms": 5.199999988079071,
+      "roundTripP50Ms": 0,
+      "notifications": 1000
+    }
+  ],
+  "reconciliation": {
+    "collectionRows": 10000,
+    "changedRowsPerCommit": 1000,
+    "adapterReconciliationP50Ms": 6.299999952316284,
+    "adapterReconciliationP95Ms": 7.299999952316284,
+    "legacyReconciliationP50Ms": 3191.899999976158,
+    "legacyReconciliationP95Ms": 3282.399999976158,
+    "verifiedRows": 10000,
+    "inspection": {
+      "revision": 4,
+      "commits": 4,
+      "mutations": 13000,
+      "queryRuns": 7,
+      "invalidations": 3,
+      "subscribers": 1,
+      "sessions": 1,
+      "queueRows": 0,
+      "wasmBytes": 16777216,
+      "queries": [
+        {
+          "sql": "SELECT * FROM \"items\"",
+          "tables": [
+            "items"
+          ],
+          "subscribers": 1,
+          "mode": "incremental"
+        }
+      ]
+    }
+  },
+  "joins": {
+    "owners": 5000,
+    "entries": 10000,
+    "changedRowsPerCommit": 500,
+    "commits": 10,
+    "deliveries": 11,
+    "executionP50Ms": 1,
+    "observationP50Ms": 2.100000023841858,
+    "queryP50Ms": 0.5999999642372131,
+    "inspection": {
+      "revision": 11,
+      "commits": 11,
+      "mutations": 20000,
+      "queryRuns": 11,
+      "invalidations": 10,
+      "subscribers": 1,
+      "sessions": 1,
+      "queueRows": 0,
+      "wasmBytes": 16777216,
+      "queries": [
+        {
+          "sql": "SELECT o.id,o.name,count(e.id) AS entries FROM owners o LEFT JOIN entries e ON e.owner=o.id WHERE o.id<1000 GROUP BY o.id ORDER BY entries DESC,o.id LIMIT 100",
+          "tables": [
+            "owners",
+            "entries"
+          ],
+          "subscribers": 1,
+          "mode": "rerun"
+        }
+      ]
+    }
+  }
+}

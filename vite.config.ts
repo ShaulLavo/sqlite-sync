@@ -1,17 +1,15 @@
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'vite'
+import { realpathSync } from 'node:fs'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import solid from 'vite-plugin-solid'
-import topLevelAwait from 'vite-plugin-top-level-await'
 
 export default defineConfig({
-	plugins: [tailwindcss(), topLevelAwait(), solid()],
+	plugins: [tailwindcss(), solid()],
+	resolve: { alias: { '@sqlite.org/sqlite-wasm': realpathSync('node_modules/@sqlite.org/sqlite-wasm') + '/sqlite-wasm/jswasm/sqlite3-bundler-friendly.mjs' } },
+	server: { hmr: !(process.env.SQLITE_BENCH || process.env.SQLITE_VERIFY), fs: { allow: [searchForWorkspaceRoot(process.cwd()), realpathSync('node_modules/@libsql/libsql-wasm-experimental'), realpathSync('node_modules/@sqlite.org/sqlite-wasm')] } },
+	worker: { format: 'es' },
 	optimizeDeps: {
-		exclude: ['@sqlite.org/sqlite-wasm', '@libsql/libsql-wasm-experimental']
+		exclude: ['@sqlite.org/sqlite-wasm', '@libsql/libsql-wasm-experimental'],
+		include: ['solid-js', 'solid-js/store', 'comlink', 'drizzle-orm', 'drizzle-orm/sqlite-proxy', 'drizzle-orm/libsql', 'drizzle-orm/sqlite-core', '@libsql/core/api', '@libsql/core/config', '@libsql/core/util']
 	}
-	// server: {
-	// 	headers: {
-	// 		'Cross-Origin-Opener-Policy': 'same-origin',
-	// 		'Cross-Origin-Embedder-Policy': 'require-corp'
-	// 	}
-	// }
 })
