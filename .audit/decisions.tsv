@@ -1,0 +1,2 @@
+ts	phase	decision	why	evidence	result
+2026-10-08T12:37:47Z	baseline	Preserve the legacy worker and triggers for executable comparisons	The old event order must be demonstrated before replacing the implementation	benchmarks/legacy/worker.ts	baseline harness ready

@@ -33,10 +33,13 @@
     "vite-plugin-top-level-await": "^1.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.4",
     "@types/sharedworker": "^0.0.164",
     "@vitest/browser": "^3.1.4",
     "drizzle-kit": "^0.31.1",
     "jsdom": "^26.1.0",
+    "playwright": "^1.64.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-solid": "^2.11.6",
