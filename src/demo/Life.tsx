@@ -19,8 +19,8 @@ export function Life(props: { db: ReactiveDatabase; onError: (error: unknown) =>
 	let canvas: HTMLCanvasElement | undefined
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let disposed = false
-	const width = createMemo(() => Math.max(WIDTH, ...cells.rows.map(cell => cell.x + 1)))
-	const height = createMemo(() => Math.max(HEIGHT, ...cells.rows.map(cell => cell.y + 1)))
+	const width = createMemo(() => cells.rows.reduce((max, cell) => Math.max(max, cell.x + 1), WIDTH))
+	const height = createMemo(() => cells.rows.reduce((max, cell) => Math.max(max, cell.y + 1), HEIGHT))
 	const population = createMemo(() => cells.rows.reduce((count, cell) => count + Number(cell.alive), 0))
 
 	function stop() {

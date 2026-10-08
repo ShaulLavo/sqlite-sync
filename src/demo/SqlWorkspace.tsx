@@ -40,7 +40,12 @@ export function SqlWorkspace(props: { db: ReactiveDatabase; initialTable?: strin
 			if (value.status === 'ready') setUpdates(count => count + 1)
 		})
 	}
-	createEffect(() => { if (props.initialTable) setSql(`SELECT * FROM "${props.initialTable}" LIMIT 100`) })
+	createEffect(() => {
+		if (!props.initialTable) return
+		const statement = `SELECT * FROM "${props.initialTable}" LIMIT 100`
+		setSql(statement)
+		watch(statement)
+	})
 	watch(sql())
 	onCleanup(() => unsubscribe())
 

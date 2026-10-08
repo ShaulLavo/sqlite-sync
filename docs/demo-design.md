@@ -35,7 +35,7 @@ This favors experienced SQL users but makes Life secondary and needs more horizo
 
 ## Selected design
 
-Use A. It explains the library through one action: a generation writes SQLite, commits changes, updates subscribed rows, and redraws the board. The SQL tab retains the editor and live results. The tables tab retains user creation, editing and deletion.
+Use A. It explains the library through one action: a generation writes SQLite, commits changes, updates subscribed rows, and redraws the board. The SQL tab retains the editor and live results. The tables tab retains user creation, editing and deletion. Sections stay mounted while switching tabs, so SQL text survives navigation and the subscription inspector can show current listeners. Leaving the page releases them.
 
 Counters come from the worker inspection API, commit events and Solid adapter. Delivery latency is page event receipt minus the worker's commit timestamp. Reconciliation time measures the adapter's store update, while canvas draw time measures the board renderer. Neither claims to measure browser paint time. The event feed keeps at most 80 row changes, and distinguishes commit revisions from row operations.
 
