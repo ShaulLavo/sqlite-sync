@@ -1,81 +1,187 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import type { Change, CommitEvent, Inspection } from '../core/types'
-import { connectDemo, initializeDemo } from './database'
-import { Icon } from './icons'
-import { Life } from './Life'
-import { SqlWorkspace } from './SqlWorkspace'
-import { Tables } from './Tables'
+import type { Change, Inspection, Row } from '../core/types'
+import { Board } from './Board'
+import { Console } from './Console'
+import { connectDemo, initializeDemo, stepSql } from './database'
+import { createTelemetry } from './metrics'
+import { TelemetryPanel } from './Telemetry'
 
-type View = 'life' | 'sql' | 'tables' | 'subscriptions'
-type FeedRow = Change & { revision: number; receivedAt: number }
-const tabs: { id: View; label: string }[] = [{ id: 'life', label: 'Game of Life' }, { id: 'sql', label: 'SQL playground' }, { id: 'tables', label: 'Tables' }, { id: 'subscriptions', label: 'Subscriptions' }]
+type FeedRow = Change & { revision: number; id: number }
 
-function jsonRow(value: unknown) {
-	return JSON.stringify(value, (_, field: unknown) => typeof field === 'bigint' ? field.toString() : field instanceof Uint8Array ? `[blob: ${field.byteLength} bytes]` : field)
+const REPO = 'https://github.com/ShaulLavo/sqlite-sync'
+const keywords = new Set(['WITH', 'AS', 'MATERIALIZED', 'VALUES', 'SELECT', 'SUM', 'CASE', 'WHEN', 'AND', 'THEN', 'ELSE', 'END', 'FROM', 'WHERE', 'GROUP', 'BY', 'HAVING', 'OR', 'NOT', 'IN', 'UPDATE', 'SET'])
+
+function highlight(sql: string) {
+	return sql.split(/(\b[A-Za-z_]+\b|\b\d+\b)/).map(part => {
+		if (keywords.has(part)) return <span class="tok-kw">{part}</span>
+		if (/^\d+$/.test(part)) return <span class="tok-num">{part}</span>
+		return part
+	})
 }
 
-function errorMessage(error: unknown) { return error instanceof Error ? error.message : String(error) }
-function formatNumber(value: number | undefined) { return value === undefined ? '—' : value.toLocaleString() }
+function compact(row: Row) {
+	return Object.entries(row).map(([key, value]) => `${key}=${typeof value === 'string' ? JSON.stringify(value) : value instanceof Uint8Array ? `blob(${value.byteLength})` : String(value)}`).join(' ')
+}
+
+function count(value: number | undefined) {
+	return value === undefined ? '—' : value.toLocaleString()
+}
 
 export default function Playground() {
 	const db = connectDemo()
-	const [state, setState] = createSignal<'loading' | 'ready' | 'failed'>('loading')
+	const telemetry = createTelemetry()
+	const [state, setState] = createSignal<'opening' | 'ready' | 'failed'>('opening')
 	const [error, setError] = createSignal('')
-	const [view, setView] = createSignal<View>(location.pathname === '/info' ? 'tables' : location.pathname === '/changelog' ? 'subscriptions' : 'life')
-	const [sqlTable, setSqlTable] = createSignal<string>()
 	const [inspection, setInspection] = createSignal<Inspection>()
-	const [latest, setLatest] = createSignal<CommitEvent>()
 	const [feed, setFeed] = createSignal<FeedRow[]>([])
-	const [deliveryMs, setDeliveryMs] = createSignal<number>()
-	const [pending, setPending] = createSignal(false)
+	let feedId = 0
 	let disposed = false
-	let interval: ReturnType<typeof setInterval> | undefined
+	let timer: ReturnType<typeof setInterval> | undefined
 
-	function reportError(value: unknown) { setError(errorMessage(value)) }
+	function report(value: unknown) {
+		setError(value instanceof Error ? value.message : String(value))
+	}
+
 	async function inspect() {
-		if (pending() || disposed) return
-		setPending(true)
 		try { const value = await db.inspect(); if (!disposed) setInspection(value) }
-		catch (value) { if (!disposed) reportError(value) }
-		finally { if (!disposed) setPending(false) }
+		catch (value) { if (!disposed) report(value) }
 	}
 
 	const unsubscribe = db.subscribeEvents(event => {
 		if (disposed) return
-		if (event.kind === 'error') { setState('failed'); reportError(event.message); return }
-		const receivedAt = performance.timeOrigin + performance.now()
-		setLatest(event)
-		setInspection(previous => previous ? { ...previous, revision: event.revision, ...event.totals } : previous)
-		setDeliveryMs(Math.max(0, receivedAt - event.committedAt))
-		setFeed(rows => [...event.changes.slice(-80).reverse().map(change => ({ ...change, revision: event.revision, receivedAt })), ...rows].slice(0, 80))
+		if (event.kind === 'error') { setState('failed'); report(event.message); return }
+		telemetry.commit(event)
+		setInspection(previous => previous && { ...previous, revision: event.revision, ...event.totals })
+		const fresh = event.changes.slice(-6).reverse().map(change => ({ ...change, revision: event.revision, id: feedId++ }))
+		setFeed(rows => [...fresh, ...rows].slice(0, 9))
 	})
 
 	onMount(async () => {
-		try { await initializeDemo(db); if (disposed) return; setState('ready'); await inspect(); interval = setInterval(() => void inspect(), 1000) }
-		catch (value) { reportError(value); setState('failed') }
+		try {
+			await initializeDemo(db)
+			if (disposed) return
+			setState('ready')
+			await inspect()
+			timer = setInterval(() => void inspect(), 1000)
+		} catch (value) { report(value); setState('failed') }
 	})
-	onCleanup(() => { disposed = true; clearInterval(interval); unsubscribe(); db.close() })
+
+	onCleanup(() => { disposed = true; clearInterval(timer); unsubscribe(); db.close() })
 
 	async function download() {
 		try {
 			const bytes = await db.exportDatabase()
 			const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/vnd.sqlite3' }))
-			const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'sqlite-sync.db'; anchor.click()
+			const anchor = document.createElement('a')
+			anchor.href = url
+			anchor.download = 'sqlite-sync.db'
+			anchor.click()
 			setTimeout(() => URL.revokeObjectURL(url), 1000)
-		} catch (value) { reportError(value) }
+		} catch (value) { report(value) }
 	}
 
-	return <div class="playground">
-		<header class="site-header"><a class="wordmark" href="/" aria-label="sqlite-sync home"><span class="brand-symbol"><Icon name="database" size={19} /></span>sqlite<span class="brand-hyphen">-</span>sync<span class="project-tag">LAB</span></a><div class="header-links"><a href="https://github.com/ShaulLavo/sqlite-sync" target="_blank" rel="noreferrer">Source <Icon name="external" size={13} /></a><button disabled={state() !== 'ready'} onClick={() => void download()}><Icon name="download" size={15} />Export database</button></div></header>
+	const status = () => state() === 'ready' ? 'SQLite ready' : state() === 'failed' ? 'SQLite failed' : 'Opening SQLite'
+
+	return <div class="page">
+		<header class="topbar">
+			<a class="wordmark" href={import.meta.env.BASE_URL}><span class="mark" aria-hidden="true"><i /><i /><i /><i /></span>sqlite-sync</a>
+			<div class="topbar-right">
+				<span class="status" classList={{ ready: state() === 'ready', failed: state() === 'failed' }}><i />{status()}</span>
+				<button class="link" disabled={state() !== 'ready'} onClick={() => void download()}>Download .db</button>
+				<a class="link" href={REPO} target="_blank" rel="noreferrer">GitHub ↗</a>
+			</div>
+		</header>
+
 		<main>
-			<div class="hero"><div><p class="eyebrow"><span class="status-dot" /> BROWSER-NATIVE · FRAMEWORK-INDEPENDENT</p><h1>Reactive SQLite.<br /><span>Watch it work.</span></h1><p class="hero-description">Write to a real database. See committed changes become live UI.<br class="desktop-break" /> Everything stays on this device, even after a reload.</p></div><div class="hero-note"><span class="note-line" /><p>SQLite → committed changes<br />→ reactive queries → your UI</p><span class="note-label">No polling. No server.</span></div></div>
-			<nav class="demo-tabs" aria-label="Playground sections"><For each={tabs}>{tab => <button classList={{ active: view() === tab.id }} aria-current={view() === tab.id ? 'page' : undefined} onClick={() => setView(tab.id)}>{tab.label}<Show when={tab.id === 'life'}><span class="tab-dot" /></Show></button>}</For><span class="connection-status"><span class="status-dot" />{state() === 'ready' ? 'SQLite connected' : state() === 'failed' ? 'Connection failed' : 'Opening SQLite'}</span></nav>
-			<Show when={error()}><div class="error-banner" role="alert"><span>{error()}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div></Show>
-			<Show when={state() === 'ready'} fallback={<div class="startup-state"><Icon name="database" size={32} /><h2>{state() === 'failed' ? 'SQLite could not open' : 'Opening your local database…'}</h2><p>{state() === 'failed' ? 'The error above includes the storage or worker failure. Close other tabs if exclusive ownership is in use, then reload.' : 'Starting the worker and restoring persisted tables.'}</p><Show when={state() === 'failed'}><button class="button" onClick={() => location.reload()}>Retry connection</button></Show></div>}>
-				<div class="workspace"><div class="workspace-main"><div hidden={view() !== 'life'}><Life db={db} onError={reportError} inspectTables={() => { setSqlTable('cells'); setView('sql') }} /></div><div hidden={view() !== 'sql'}><SqlWorkspace db={db} initialTable={sqlTable()} onError={reportError} /></div><div hidden={view() !== 'tables'}><Tables db={db} onError={reportError} /></div><Show when={view() === 'subscriptions'}><section class="subscriptions-section"><div class="section-heading"><div><p class="eyebrow">04 / Selective reactivity</p><h2>Subscription inspector</h2></div></div><p class="caption">These are the real queries registered in the database worker. Whole-table subscriptions apply row patches; other queries rerun only when their dependencies change.</p><For each={inspection()?.queries}>{query => <div class="subscription-row"><div><span class="mode-badge">{query.mode}</span><span class="muted">{query.subscribers} listeners</span></div><code>{query.sql}</code><p>Dependencies · {query.tables.join(', ') || 'none'}</p></div>}</For><Show when={!inspection()?.queries.length}><p class="empty-state">Live query listeners are released when their query is replaced or this page closes.</p></Show><button class="button" onClick={() => void inspect()}>Refresh inspector</button></section></Show></div>
-				<aside class="telemetry" aria-label="Database performance metrics"><p class="eyebrow">Under the hood</p><h3>Every write has a path.</h3><div class="pipeline"><div><span class="pipeline-number">1</span><div><h4>SQLite mutation</h4><p>Executed in the worker</p></div><strong>{formatNumber(inspection()?.mutations)}<small>row changes</small></strong></div><div><span class="pipeline-number">2</span><div><h4>Successful commit</h4><p>Rollback stays silent</p></div><strong>{formatNumber(inspection()?.commits)}<small>commits</small></strong></div><div><span class="pipeline-number">3</span><div><h4>Reactive queries</h4><p>Only affected dependencies</p></div><strong>{formatNumber(inspection()?.invalidations)}<small>invalidations</small></strong></div></div><dl class="performance-readings"><div><dt>Latest mutation execution</dt><dd>{latest() ? `${latest()?.executionMs.toFixed(2)} ms` : '—'}</dd></div><div><dt>Latest change processing</dt><dd>{latest() ? `${latest()?.observationMs.toFixed(2)} ms` : '—'}</dd></div><div><dt>Latest query processing</dt><dd>{latest() ? `${latest()?.queryMs.toFixed(2)} ms` : '—'}</dd></div><div><dt>Commit → event delivery</dt><dd>{deliveryMs() === undefined ? '—' : `${deliveryMs()?.toFixed(2)} ms`}</dd></div><div><dt>SQL query executions</dt><dd>{formatNumber(inspection()?.queryRuns)}</dd></div><div><dt>Active listeners</dt><dd>{formatNumber(inspection()?.subscribers)}</dd></div><div><dt>Connected pages</dt><dd>{formatNumber(inspection()?.sessions)}</dd></div><div><dt>WASM heap capacity</dt><dd>{inspection() ? `${((inspection()?.wasmBytes ?? 0) / 1048576).toFixed(1)} MB` : '—'}</dd></div></dl><p class="telemetry-note">Worker counters are cumulative across connected pages. Execution includes SQL triggers and commit I/O. Change processing measures queue decoding. Delivery includes worker messaging and any query work before the event. Readings refresh every second.</p><div class="persistence-note"><Icon name="database" size={20} /><div><strong>Your data stays here.</strong><p>SQLite persists to browser storage. Export a database copy, or reload to test persistence.</p></div></div></aside></div>
-				<section class="change-stream" aria-label="Committed database changes"><div class="stream-heading"><div><p class="eyebrow">Committed change stream</p><h3>The database, in motion.</h3></div><span><span class="status-dot" /> Live · latest 80 row changes</span></div><div class="stream-table"><table class="data-table"><thead><tr><th>Commit</th><th>Sequence</th><th>Operation</th><th>Table</th><th>Primary key</th><th>Row values</th></tr></thead><tbody><For each={feed().slice(0, 12)}>{change => <tr><td>#{change.revision}</td><td class="muted">{change.sequence}</td><td><span class={`operation operation-${change.operation.toLowerCase()}`}>{change.operation}</span></td><td>{change.table}</td><td><code>{jsonRow(change.key)}</code></td><td><code>{jsonRow(change.row)}</code></td></tr>}</For></tbody></table><Show when={!feed().length}><p class="empty-state">Step the simulation, edit a cell, or insert a user. Committed row changes appear here.</p></Show></div><p class="caption">Newest first for inspection. The engine delivers commits and their row changes in chronological order. Each commit can contain many mutations.</p></section>
+			<section class="intro">
+				<h1>Every cell is a row.<br /><em>Every generation is a&nbsp;transaction.</em></h1>
+				<p>This is Conway's Game of Life running inside SQLite, in your browser. Each step is one SQL statement, committed to disk, then pushed back to the canvas as a live query. Reload the page and the board is still here.</p>
+			</section>
+
+			<Show when={error()}>
+				<div class="alert" role="alert"><span>{error()}</span><button onClick={() => setError('')} aria-label="Dismiss">×</button></div>
 			</Show>
-		</main><footer class="site-footer"><span>sqlite-sync · local-first database infrastructure</span><span>SQLite + WebAssembly · optional Solid adapter</span></footer>
+
+			<Show when={state() === 'ready'} fallback={<div class="opening"><span class="spinner" aria-hidden="true" /><p>{state() === 'failed' ? 'SQLite could not open in this browser. Close other tabs of this page and reload.' : 'Starting the SQLite worker and restoring your board…'}</p></div>}>
+				<Board db={db} telemetry={telemetry} onError={report} />
+				<TelemetryPanel telemetry={telemetry} />
+
+				<section class="section split">
+					<div class="section-head">
+						<span class="kicker">01 · The rules, in SQL</span>
+						<h2>The whole simulation is one <code>UPDATE</code>.</h2>
+						<p>Only living cells are scanned. Each one adds 2 to its eight neighbours and 1 to itself, so a single grouped sum tells SQLite which cells flip. No joins, no application code, and only changed rows are written.</p>
+					</div>
+					<pre class="code" aria-label="Step query"><code>{highlight(stepSql)}</code></pre>
+				</section>
+
+				<section class="section">
+					<div class="section-head">
+						<span class="kicker">02 · What one commit sets in motion</span>
+						<h2>From write to screen, counted.</h2>
+					</div>
+					<ol class="flow">
+						<li><span class="flow-n">{count(inspection()?.commits)}</span><span class="flow-t">Commits</span><span class="flow-d">Transactions that succeeded. A rollback never notifies anyone.</span></li>
+						<li><span class="flow-n">{count(inspection()?.mutations)}</span><span class="flow-t">Rows captured</span><span class="flow-d">Inserts, updates and deletes recorded inside each commit.</span></li>
+						<li><span class="flow-n">{count(inspection()?.invalidations)}</span><span class="flow-t">Queries woken</span><span class="flow-d">Only subscriptions that read a changed table.</span></li>
+						<li><span class="flow-n">{count(inspection()?.queryRuns)}</span><span class="flow-t">Queries re-run</span><span class="flow-d">Table subscriptions get row patches instead of re-running.</span></li>
+					</ol>
+					<div class="two-col">
+						<div class="panel">
+							<div class="panel-head"><span>Change stream</span><span class="muted">newest first</span></div>
+							<ul class="stream" aria-live="off">
+								<For each={feed()} fallback={<li class="stream-empty">Run the board or edit a cell. Row changes land here as they commit.</li>}>
+									{change => <li><span class="muted">#{change.revision}</span><span class={`op op-${change.operation.toLowerCase()}`}>{change.operation}</span><span class="stream-table">{change.table}</span><span class="stream-row">{compact(change.row)}</span></li>}
+								</For>
+							</ul>
+						</div>
+						<div class="panel">
+							<div class="panel-head"><span>Live subscriptions</span><span class="muted">{count(inspection()?.sessions)} {inspection()?.sessions === 1 ? 'tab' : 'tabs'} connected</span></div>
+							<ul class="subs">
+								<For each={inspection()?.queries} fallback={<li class="stream-empty">No live queries.</li>}>
+									{query => <li><code>{query.sql}</code><span class="muted">{query.mode === 'incremental' ? 'row patches' : 're-run'} · {query.tables.join(', ') || 'no tables'} · {query.subscribers} {query.subscribers === 1 ? 'listener' : 'listeners'}</span></li>}
+								</For>
+							</ul>
+						</div>
+					</div>
+				</section>
+
+				<section class="section">
+					<div class="section-head">
+						<span class="kicker">03 · Try it yourself</span>
+						<h2>Ask the board a question.</h2>
+						<p>Queries stay subscribed. Start the board, run "Busiest columns", and watch the result change on every commit. Anything else runs once against the same database.</p>
+					</div>
+					<Console db={db} />
+				</section>
+			</Show>
+
+			<section class="section">
+				<div class="section-head">
+					<span class="kicker">04 · Measured in the lab</span>
+					<h2>Benchmarks, with their caveats.</h2>
+					<p>Headless Chromium 153 on an Intel Core i7-14700K, real SQLite 3.49 WASM with OPFS. Medians unless stated.</p>
+				</div>
+				<div class="bench">
+					<div class="bench-card bench-wide">
+						<span class="label">Reconcile 10,000 rows after 1,000 changes</span>
+						<div class="bars">
+							<div class="bar-row"><span>Previous store</span><div class="bar"><i style={{ width: '100%' }} /></div><b>3,191.9 ms</b></div>
+							<div class="bar-row accent"><span>sqlite-sync</span><div class="bar"><i style={{ width: '0.6%' }} /></div><b>6.3 ms</b></div>
+						</div>
+						<span class="metric-note">About 500× less work: changed rows are patched by key instead of searched for.</span>
+					</div>
+					<div class="bench-card"><span class="label">Commit → notification</span><span class="metric-value">3.3<small>ms p50</small></span><span class="metric-note">5.0 ms p95, one subscriber. 3.9 / 5.9 ms with twenty.</span></div>
+					<div class="bench-card"><span class="label">Two tabs, one database</span><span class="metric-value">456<small>commits/s</small></span><span class="metric-note">Both tabs' live queries reach the same final count.</span></div>
+					<div class="bench-card"><span class="label">Grouped JOIN, 15,000 rows</span><span class="metric-value">1.0<small>ms SQL</small></span><span class="metric-note">500 rows changed per commit; 0.6 ms of live query work.</span></div>
+				</div>
+				<p class="fineprint">Not everything is faster: batches of 1,000 distinct literal statements are slower than before. <a href={`${REPO}/blob/main/docs/benchmarks.md`} target="_blank" rel="noreferrer">Full method and raw samples ↗</a></p>
+			</section>
+		</main>
+
+		<footer class="footer">
+			<span>sqlite-sync: reactive SQLite for the browser. No server involved.</span>
+			<a href={REPO} target="_blank" rel="noreferrer">Source ↗</a>
+		</footer>
 	</div>
 }
